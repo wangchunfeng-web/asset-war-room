@@ -1,0 +1,2695 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>資產戰情室 Live | Personal Asset War Room</title>
+
+  <!-- Google Fonts: Inter, JetBrains Mono & Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '"Noto Sans TC"', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+          },
+          colors: {
+            obsidian: '#090d16',
+            panel: '#111827',
+            borderline: '#1f2937'
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Deep Obsidian War Room Base Theme */
+    html, body {
+      background-color: #090d16;
+      color: #f1f5f9;
+      font-family: 'Inter', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+    }
+
+    .war-room-bg {
+      background-color: #090d16;
+      background-image:
+        radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 42%),
+        radial-gradient(circle at 88% 4%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 50% 100%, rgba(16, 185, 129, 0.04) 0%, transparent 45%);
+      background-attachment: fixed;
+    }
+
+    /* High-contrast refined dark gray cards (#111827) with subtle shimmer edge */
+    .panel-card {
+      background: linear-gradient(160deg, rgba(17, 24, 39, 0.94), rgba(13, 19, 32, 0.92));
+      border: 1px solid rgba(51, 65, 85, 0.58);
+      box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .panel-card:hover {
+      border-color: rgba(71, 85, 105, 0.85);
+    }
+
+    /* Mandatory Tabular Numerals for zero jitter during per-second updates */
+    .num-tab {
+      font-family: 'JetBrains Mono', 'Inter', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+
+    /* Live price flash animations (rose / emerald mapped dynamically to TW/US scheme) */
+    @keyframes flashRoseBg {
+      0% { background-color: rgba(244, 63, 94, 0.36); color: #ffe4e6; }
+      100% { background-color: transparent; }
+    }
+    @keyframes flashEmeraldBg {
+      0% { background-color: rgba(16, 185, 129, 0.36); color: #d1fae5; }
+      100% { background-color: transparent; }
+    }
+    @keyframes rowFlashRose {
+      0% { background-color: rgba(244, 63, 94, 0.14); }
+      100% { background-color: transparent; }
+    }
+    @keyframes rowFlashEmerald {
+      0% { background-color: rgba(16, 185, 129, 0.14); }
+      100% { background-color: transparent; }
+    }
+    @keyframes rowFocusCyan {
+      0% { background-color: rgba(34, 211, 238, 0.25); }
+      100% { background-color: transparent; }
+    }
+
+    .flash-rose { animation: flashRoseBg 0.85s ease-out; border-radius: 6px; }
+    .flash-emerald { animation: flashEmeraldBg 0.85s ease-out; border-radius: 6px; }
+    .row-flash-rose { animation: rowFlashRose 0.9s ease-out; }
+    .row-flash-emerald { animation: rowFlashEmerald 0.9s ease-out; }
+    .row-focus-cyan { animation: rowFocusCyan 1.6s ease-out; }
+
+    /* Remove number input spinners */
+    input[type="number"].no-spinner::-webkit-inner-spin-button,
+    input[type="number"].no-spinner::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"].no-spinner { -moz-appearance: textfield; }
+
+    /* Sleek dark scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+    @keyframes toastSlideIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .toast-enter { animation: toastSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  </style>
+</head>
+
+<body class="war-room-bg min-h-screen text-slate-100 antialiased pb-20 lg:pb-10">
+
+  <!-- ==================== 1. TOP LIVE CONSOLE ==================== -->
+  <header class="sticky top-0 z-40 bg-[#090d16]/90 backdrop-blur-xl border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 space-y-3">
+
+      <!-- Main Control Row -->
+      <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+
+        <!-- Left: Brand + Pulsing Green Live Dot + HH:MM:SS Clock -->
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-500 p-[1.5px] shadow-lg shadow-cyan-500/20 shrink-0">
+              <div class="w-full h-full rounded-[10px] bg-[#090d16] flex items-center justify-center">
+                <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white">資產戰情室 <span class="text-cyan-400">Live</span></h1>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-bold text-emerald-300 tracking-wide">
+                  <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                  </span>
+                  LIVE
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
+                <i data-lucide="clock" class="w-3 h-3 text-cyan-400"></i>
+                <span id="liveSystemClock" class="num-tab font-semibold text-cyan-300">--:--:--</span>
+                <span class="text-slate-600">•</span>
+                <span class="hidden sm:inline">Personal Asset War Room</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile Settings Shortcut -->
+          <button onclick="openSettingsModal()" class="xl:hidden p-2 rounded-xl bg-[#111827] border border-slate-700/80 text-slate-300 hover:text-cyan-300 transition" title="報價設定 / GitHub 部署">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Middle: Live Quote Control Strip (Crypto WS + Stock Polling + Refresh) -->
+        <div class="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-xl bg-[#111827]/90 border border-slate-800/90 text-xs">
+          <!-- Crypto Binance WS Toggle -->
+          <button onclick="toggleCryptoStream()" id="btnCryptoWsToggle" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-700/80 hover:border-slate-600 transition" title="點擊開啟或暫停 Binance 加密貨幣每秒即時串流">
+            <span id="cryptoWsDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span id="cryptoWsLabel" class="font-semibold text-slate-200 whitespace-nowrap">Binance WS：連線中</span>
+          </button>
+
+          <span class="hidden sm:inline text-slate-700">|</span>
+
+          <!-- Stock Polling Interval Selector + Countdown -->
+          <div class="flex items-center gap-1.5">
+            <label for="pollIntervalSelect" class="text-slate-400 whitespace-nowrap hidden sm:inline">台美股更新</label>
+            <select id="pollIntervalSelect" onchange="changePollInterval(this.value)" class="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700/80 text-slate-200 text-xs font-medium focus:border-cyan-400 focus:outline-none">
+              <option value="0">手動</option>
+              <option value="10">10秒</option>
+              <option value="30">30秒</option>
+              <option value="60">60秒</option>
+              <option value="300">5分鐘</option>
+            </select>
+            <span id="pollCountdownBadge" class="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-indigo-300 num-tab font-semibold min-w-[54px] text-center">--</span>
+          </div>
+
+          <!-- Manual Refresh Button -->
+          <button id="btnManualRefresh" onclick="refreshAllQuotes(true)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 font-semibold transition active:scale-95">
+            <i id="refreshSpinnerIcon" data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>立即更新</span>
+          </button>
+        </div>
+
+        <!-- Right: FX Rate + Currency + Color Mode + Privacy + Settings -->
+        <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <!-- USD/TWD Editable FX Rate -->
+          <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#111827] border border-slate-700/80 text-xs">
+            <span class="text-slate-400 font-semibold whitespace-nowrap">USD/TWD</span>
+            <input
+              id="exchangeRateInput"
+              type="number"
+              step="0.01"
+              min="1"
+              max="200"
+              class="w-16 bg-slate-950 text-cyan-300 font-bold num-tab text-center rounded-lg px-1.5 py-0.5 border border-slate-700 focus:border-cyan-400 focus:outline-none no-spinner"
+              title="即時 USD/TWD 匯率（自動抓取，亦可手動修改）"
+            />
+            <span id="fxSourceDot" class="w-2 h-2 rounded-full bg-slate-500" title="匯率來源狀態"></span>
+          </div>
+
+          <!-- Display Currency Switch (TWD / USD) -->
+          <div class="inline-flex items-center p-0.5 rounded-xl bg-[#111827] border border-slate-700/80 text-xs font-bold">
+            <button id="btnCurrencyTWD" onclick="setDisplayCurrency('TWD')" class="px-2.5 py-1 rounded-[10px] transition">TWD</button>
+            <button id="btnCurrencyUSD" onclick="setDisplayCurrency('USD')" class="px-2.5 py-1 rounded-[10px] transition">USD</button>
+          </div>
+
+          <!-- Color Mode Toggle (台股紅漲 / 美股綠漲) -->
+          <button id="btnColorMode" onclick="toggleColorMode()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#111827] border border-slate-700/80 hover:border-slate-600 text-xs font-semibold text-slate-200 transition" title="切換漲跌配色：台股紅漲綠跌 / 美股綠漲紅跌">
+            <span id="colorModeDots" class="inline-flex items-center gap-0.5">
+              <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            </span>
+            <span id="colorModeLabel" class="whitespace-nowrap">台股紅漲</span>
+          </button>
+
+          <!-- Privacy Mode Toggle -->
+          <button id="btnPrivacy" onclick="togglePrivacyMode()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#111827] border border-slate-700/80 hover:border-slate-600 text-xs font-semibold text-slate-200 transition" title="隱私模式：一鍵遮罩所有金額與股數">
+            <i id="privacyIcon" data-lucide="eye" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">隱私</span>
+          </button>
+
+          <!-- Settings / GitHub Deploy Button (Desktop) -->
+          <button onclick="openSettingsModal()" class="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-slate-100 text-xs font-semibold transition">
+            <i data-lucide="settings" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span>報價設定 / GitHub 部署</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. STRICTLY TWO-TAB NAVIGATION (Desktop) -->
+      <nav class="hidden lg:flex items-center justify-between pt-2.5 border-t border-slate-800/75" aria-label="主分頁導覽">
+        <div class="flex items-center gap-2">
+          <button data-tab="overview" onclick="switchTab('overview')" class="nav-tab-btn inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition">
+            <span>📊</span>
+            <span>資產總覽</span>
+          </button>
+          <button data-tab="quotes" onclick="switchTab('quotes')" class="nav-tab-btn inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition">
+            <span>⚡</span>
+            <span>即時報價</span>
+            <span id="navHoldingsCount" class="px-1.5 py-0.5 rounded-md text-[11px] bg-slate-800 text-slate-300 num-tab">0</span>
+          </button>
+        </div>
+
+        <div id="headerTelemetryText" class="text-[11px] text-slate-400 num-tab">
+          初始化多源報價引擎...
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
+
+    <!-- ================================================================ -->
+    <!-- TAB 1: 📊 資產總覽 (Asset Overview)                                -->
+    <!-- ================================================================ -->
+    <section id="view-overview" class="tab-view space-y-5">
+
+      <!-- 4 Core Real-Time KPI Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+
+        <!-- KPI 1: 總資產市值 -->
+        <div class="panel-card rounded-2xl p-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-cyan-500/10 blur-2xl pointer-events-none"></div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold tracking-wider text-slate-400">總資產市值</span>
+            <div class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
+              <i data-lucide="wallet" class="w-4 h-4 text-cyan-400"></i>
+            </div>
+          </div>
+          <div id="kpiTotalValue" class="text-2xl sm:text-[26px] font-extrabold text-white num-tab tracking-tight inline-block px-1 -mx-1">NT$0</div>
+          <div class="mt-2.5 flex items-center justify-between text-xs text-slate-400">
+            <span>副幣別折合</span>
+            <span id="kpiSecondaryValue" class="font-semibold text-slate-300 num-tab">≈ US$0</span>
+          </div>
+        </div>
+
+        <!-- KPI 2: 今日預估損益 -->
+        <div class="panel-card rounded-2xl p-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none"></div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold tracking-wider text-slate-400">今日預估損益</span>
+            <div class="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
+              <i data-lucide="activity" class="w-4 h-4 text-indigo-400"></i>
+            </div>
+          </div>
+          <div id="kpiTodayPnl" class="text-2xl sm:text-[26px] font-extrabold num-tab tracking-tight inline-block px-1 -mx-1">NT$0</div>
+          <div class="mt-2.5 flex items-center justify-between text-xs">
+            <span class="text-slate-400">今日總漲跌幅</span>
+            <span id="kpiTodayPctBadge" class="px-2 py-0.5 rounded-full font-bold num-tab text-[11px] border">0.00%</span>
+          </div>
+        </div>
+
+        <!-- KPI 3: 累計未實現損益 -->
+        <div class="panel-card rounded-2xl p-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none"></div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold tracking-wider text-slate-400">累計未實現損益</span>
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+              <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+            </div>
+          </div>
+          <div id="kpiUnrealizedPnl" class="text-2xl sm:text-[26px] font-extrabold num-tab tracking-tight inline-block px-1 -mx-1">NT$0</div>
+          <div class="mt-2.5 flex items-center justify-between text-xs">
+            <span class="text-slate-400">總成本 <strong id="kpiTotalCost" class="text-slate-300 num-tab">NT$0</strong></span>
+            <span id="kpiTotalRoiBadge" class="px-2 py-0.5 rounded-full font-bold num-tab text-[11px] border">0.00%</span>
+          </div>
+        </div>
+
+        <!-- KPI 4: 資產配置快覽 -->
+        <div class="panel-card rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold tracking-wider text-slate-400">資產配置快覽</span>
+            <span id="kpiTotalHoldingsCount" class="text-[11px] font-bold text-cyan-300 num-tab">0 檔標的</span>
+          </div>
+          <!-- Stacked Horizontal Bar -->
+          <div id="kpiAllocationBar" class="w-full h-2.5 rounded-full bg-slate-800 overflow-hidden flex gap-[2px] my-1.5"></div>
+          <!-- 4 Category Micro Grid -->
+          <div id="kpiAllocationQuickGrid" class="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-2 text-[11px]"></div>
+        </div>
+      </div>
+
+      <!-- 2-Column Visual Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- Left Column: Asset Allocation Doughnut Chart (5 cols) -->
+        <div class="panel-card rounded-2xl p-5 lg:col-span-5 flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-cyan-400"></i>
+                資產配置甜甜圈圖
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">即時市值權重分佈</p>
+            </div>
+            <!-- 3-Way Switcher: Category / Currency / Holding -->
+            <div class="inline-flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold">
+              <button id="btnDonutCategory" onclick="setDonutMode('category')" class="px-2.5 py-1 rounded-[9px] transition">依市場</button>
+              <button id="btnDonutCurrency" onclick="setDonutMode('currency')" class="px-2.5 py-1 rounded-[9px] transition">依幣別</button>
+              <button id="btnDonutHolding" onclick="setDonutMode('holding')" class="px-2.5 py-1 rounded-[9px] transition">依個股</button>
+            </div>
+          </div>
+
+          <!-- Chart Container with Center Total -->
+          <div class="relative h-60 w-full flex items-center justify-center">
+            <canvas id="allocationChart"></canvas>
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span class="text-[11px] font-medium text-slate-400">總資產市值</span>
+              <span id="donutCenterTotal" class="text-base sm:text-lg font-extrabold text-white num-tab mt-0.5">--</span>
+            </div>
+          </div>
+
+          <!-- Legend List -->
+          <div id="allocationLegend" class="mt-4 pt-3 border-t border-slate-800/80 space-y-1.5 max-h-60 overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- Right Column: Market Summary + Top 5 Live Holdings (7 cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-5">
+
+          <!-- Top Half: Market Category P&L Summary -->
+          <div class="panel-card rounded-2xl p-5">
+            <div class="flex items-center justify-between mb-3.5">
+              <div>
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                  <i data-lucide="layers" class="w-4 h-4 text-indigo-400"></i>
+                  各市場損益摘要
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">台股、美股、加密貨幣與現金即時市值與總報酬率</p>
+              </div>
+            </div>
+            <div id="marketSummaryGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          </div>
+
+          <!-- Bottom Half: Top 5 Live Holdings Board -->
+          <div class="panel-card rounded-2xl p-5 flex-1">
+            <div class="flex items-center justify-between mb-3.5">
+              <div>
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                  <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i>
+                  前五大即時持倉看板
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">依即時權重排序，點擊標的直接跳轉即時報價明細</p>
+              </div>
+              <button onclick="switchTab('quotes')" class="inline-flex items-center gap-1 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition">
+                <span>全部報價</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <div id="topFiveHoldingsList" class="space-y-2.5"></div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- TAB 2: ⚡ 即時報價 (Live Quotes)                                   -->
+    <!-- ================================================================ -->
+    <section id="view-quotes" class="tab-view hidden space-y-4">
+      <div class="panel-card rounded-2xl p-5 space-y-4">
+
+        <!-- Header & Add Button -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="zap" class="w-5 h-5 text-cyan-400"></i>
+              戰情即時報價
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">加密貨幣由 Binance WebSocket 每秒跳動更新；台美股自動輪詢 Yahoo Finance，點擊現價可直接行內覆寫</p>
+          </div>
+          <button onclick="openHoldingModal()" class="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-cyan-500/20 transition active:scale-95 shrink-0">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>+ 新增標的</span>
+          </button>
+        </div>
+
+        <!-- Filter Pills + Search + Sort Bar -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <!-- Market Filter Pills -->
+          <div id="marketFilterPills" class="flex flex-wrap items-center gap-1.5"></div>
+
+          <!-- Search & Sort -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 lg:max-w-md">
+            <div class="relative flex-1">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+              <input
+                id="quoteSearchInput"
+                type="text"
+                placeholder="搜尋代號或名稱（如 2330、NVDA、BTC）..."
+                class="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950/90 border border-slate-800 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none transition"
+              />
+            </div>
+            <select id="quoteSortSelect" class="px-3 py-2 rounded-xl bg-slate-950/90 border border-slate-800 text-xs sm:text-sm text-slate-200 focus:border-cyan-400 focus:outline-none">
+              <option value="value_desc">市值由高到低</option>
+              <option value="today_desc">今日漲跌幅</option>
+              <option value="roi_desc">總報酬率</option>
+              <option value="symbol_asc">代號 (A-Z)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Live Quotes Table -->
+        <div class="overflow-x-auto -mx-5 px-5">
+          <table class="w-full text-left border-collapse min-w-[920px]">
+            <thead>
+              <tr class="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
+                <th class="py-3 pr-3 font-semibold">標的 / 來源</th>
+                <th class="py-3 px-2 font-semibold text-right">即時現價 <span class="text-cyan-400 normal-case">(點擊覆寫)</span></th>
+                <th class="py-3 px-2 font-semibold text-right">今日漲跌</th>
+                <th class="py-3 px-2 font-semibold text-right">持有數量 / 均價</th>
+                <th class="py-3 px-2 font-semibold text-right">即時市值 (<span class="display-currency-label">TWD</span>) / 佔比</th>
+                <th class="py-3 px-2 font-semibold text-right">未實現損益</th>
+                <th class="py-3 pl-2 font-semibold text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="quotesTableBody" class="divide-y divide-slate-800/70 text-sm"></tbody>
+            <tfoot id="quotesTableFoot" class="border-t-2 border-slate-700/80 bg-slate-950/60 text-sm font-bold"></tfoot>
+          </table>
+        </div>
+
+        <!-- Bottom Status & Telemetry Bar -->
+        <div class="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span class="text-slate-300 font-medium">WS</span> Binance 每秒串流
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+              <span class="text-slate-300 font-medium">YF</span> Yahoo Finance
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span class="text-slate-300 font-medium">手動</span> 手動維護
+            </span>
+          </div>
+          <div id="tableFooterTelemetry" class="num-tab text-slate-300">
+            最後更新：等待報價同步...
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MOBILE BOTTOM NAVIGATION (STRICTLY 2 TABS) ==================== -->
+  <nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#090d16]/95 backdrop-blur-xl border-t border-slate-800/90 px-4 py-1.5">
+    <div class="grid grid-cols-2 gap-2 max-w-md mx-auto">
+      <button data-tab="overview" onclick="switchTab('overview')" class="mobile-tab-btn flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition">
+        <span>📊</span>
+        <span>資產總覽</span>
+      </button>
+      <button data-tab="quotes" onclick="switchTab('quotes')" class="mobile-tab-btn flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition">
+        <span>⚡</span>
+        <span>即時報價</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ==================== MODAL: ADD / EDIT HOLDING ==================== -->
+  <div id="holdingModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="panel-card w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-slate-700/80 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 id="holdingModalTitle" class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-cyan-400"></i>
+          <span>新增標的</span>
+        </h3>
+        <button onclick="closeHoldingModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="holdingForm" onsubmit="handleHoldingSubmit(event)" class="mt-4 space-y-4">
+        <input type="hidden" id="formItemId" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">市場類別 *</label>
+            <select id="formCategory" onchange="onFormCategoryChange(true)" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:border-cyan-400 focus:outline-none">
+              <option value="tw_stock">台股</option>
+              <option value="us_stock">美股</option>
+              <option value="crypto">加密貨幣</option>
+              <option value="cash">現金</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">計價幣別 *</label>
+            <select id="formCurrency" onchange="updateModalLivePreview()" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:border-cyan-400 focus:outline-none">
+              <option value="TWD">TWD (新台幣)</option>
+              <option value="USD">USD (美元)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div class="sm:col-span-1">
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">代號 *</label>
+            <input id="formSymbol" type="text" required placeholder="2330" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white num-tab uppercase placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">標的名稱 *</label>
+            <input id="formName" type="text" required placeholder="例如：台積電、NVIDIA、Bitcoin" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
+          </div>
+        </div>
+        <p id="formSymbolHint" class="text-[11px] text-cyan-300/85 -mt-2">台股直接輸入純數字（如 2330、0050、8069），系統將自動偵測上市 (.TW) 與上櫃 (.TWO)。</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label id="labelFormQty" class="block text-xs font-semibold text-slate-300 mb-1.5">持有數量 *</label>
+            <input id="formQty" type="number" step="any" min="0" required oninput="updateModalLivePreview()" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white num-tab focus:border-cyan-400 focus:outline-none" />
+          </div>
+          <div>
+            <label id="labelFormAvgCost" class="block text-xs font-semibold text-slate-300 mb-1.5">平均成本（原幣）*</label>
+            <input id="formAvgCost" type="number" step="any" min="0" required oninput="updateModalLivePreview()" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white num-tab focus:border-cyan-400 focus:outline-none" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-center">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">目前現價（選填，留空則自動抓價）</label>
+            <input id="formCurrentPrice" type="number" step="any" min="0" oninput="updateModalLivePreview()" placeholder="自動抓取最新價" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white num-tab placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer mt-4 sm:mt-5">
+            <div>
+              <div class="text-xs font-semibold text-slate-200">自動即時抓價</div>
+              <div class="text-[10px] text-slate-400">關閉即為手動維護</div>
+            </div>
+            <input id="formAutoQuote" type="checkbox" checked class="w-4 h-4 accent-cyan-400 rounded cursor-pointer" />
+          </label>
+        </div>
+
+        <!-- Live Preview Box -->
+        <div class="p-3.5 rounded-xl bg-slate-950/90 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div>
+            <span class="text-slate-400">預估市值：</span>
+            <strong id="modalPreviewValue" class="text-white num-tab text-sm">NT$0</strong>
+          </div>
+          <div>
+            <span class="text-slate-400">預估損益：</span>
+            <strong id="modalPreviewPnl" class="num-tab text-sm">--</strong>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-2">
+          <button type="button" onclick="closeHoldingModal()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs sm:text-sm font-semibold transition">取消</button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-cyan-500/20 transition">
+            儲存並即時更新
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: SETTINGS, WORKER & GITHUB DEPLOY ==================== -->
+  <div id="settingsModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="panel-card w-full max-w-3xl rounded-2xl p-6 shadow-2xl border border-slate-700/80 max-h-[92vh] overflow-y-auto space-y-5">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="settings" class="w-5 h-5 text-cyan-400"></i>
+          報價設定 / GitHub Pages 部署與備份
+        </h3>
+        <button onclick="closeSettingsModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- 1. Cloudflare Worker Custom Proxy -->
+      <div class="p-4 rounded-xl bg-slate-950/85 border border-cyan-500/30 space-y-3">
+        <div>
+          <h4 class="text-sm font-bold text-cyan-300 flex items-center gap-1.5">
+            <i data-lucide="server" class="w-4 h-4"></i>
+            1. Cloudflare Worker 專屬代理設定（突破公開 CORS 限流）
+          </h4>
+          <p class="text-xs text-slate-400 mt-1">
+            留空時自動輪替 3 組免費公開 CORS 代理（每組 6 秒超時保護）；填入自建免費 Cloudflare Worker 後，台美股抓價穩定度可達 99.9% 且低延遲。
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input
+            id="workerUrlInput"
+            type="url"
+            placeholder="https://your-worker.workers.dev/?url="
+            class="flex-1 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs num-tab text-white placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
+          />
+          <button onclick="saveWorkerUrl()" class="px-3.5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-semibold whitespace-nowrap transition">
+            儲存網址
+          </button>
+          <button onclick="testWorkerConnection()" class="px-3.5 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-semibold whitespace-nowrap transition">
+            測試連線與延遲
+          </button>
+        </div>
+        <div id="workerTestResult" class="hidden text-xs p-2.5 rounded-lg bg-slate-900 border border-slate-800 num-tab"></div>
+
+        <!-- Copyable ~25-line Worker Code with Yahoo Finance Whitelist -->
+        <div class="pt-1 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold text-slate-300">Cloudflare Worker 轉發程式碼（內建 Yahoo Finance 安全白名單）</span>
+            <button onclick="copyWorkerCode()" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 text-[11px] font-semibold transition">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>一鍵複製程式碼</span>
+            </button>
+          </div>
+          <pre id="workerCodeBlock" class="p-3 rounded-xl bg-[#05080f] border border-slate-800 text-[11px] leading-relaxed text-emerald-300 num-tab overflow-x-auto select-all"></pre>
+        </div>
+      </div>
+
+      <!-- 2. GitHub Pages 3-Step Guide -->
+      <div class="p-4 rounded-xl bg-slate-950/85 border border-indigo-500/30 space-y-3">
+        <h4 class="text-sm font-bold text-indigo-300 flex items-center gap-1.5">
+          <i data-lucide="rocket" class="w-4 h-4"></i>
+          2. GitHub Pages 三步驟免費部署指南
+        </h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 font-bold num-tab">1</span>
+            <div class="font-bold text-white">儲存為 index.html</div>
+            <p class="text-slate-400 leading-relaxed">將本檔案下載或另存為 <code class="text-cyan-300">index.html</code>（單檔即包含所有 HTML / CSS / JS）。</p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 font-bold num-tab">2</span>
+            <div class="font-bold text-white">建立 Repo 並上傳</div>
+            <p class="text-slate-400 leading-relaxed">在 GitHub 建立新的公開 Repository，透過網頁直接上傳 <code class="text-cyan-300">index.html</code> 至 <code class="text-cyan-300">main</code> 分支。</p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 font-bold num-tab">3</span>
+            <div class="font-bold text-white">開啟 GitHub Pages</div>
+            <p class="text-slate-400 leading-relaxed">進入 <strong class="text-slate-200">Settings → Pages</strong>，Source 選 <code class="text-cyan-300">main / root</code> 並儲存，約 1 分鐘即可免費上線看盤！</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. JSON Backup & Restore -->
+      <div class="p-4 rounded-xl bg-slate-950/85 border border-slate-800 space-y-3">
+        <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
+          3. 資料備份與還原（JSON）
+        </h4>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="exportJsonFile()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-300 text-xs font-semibold transition">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            匯出 JSON 備份檔
+          </button>
+          <button onclick="copyJsonToClipboard()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold transition">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            複製 JSON
+          </button>
+          <label class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/35 text-indigo-300 text-xs font-semibold cursor-pointer transition">
+            <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+            上傳 JSON 還原
+            <input id="jsonFileInput" type="file" accept=".json,application/json" onchange="handleJsonFileUpload(event)" class="hidden" />
+          </label>
+          <button onclick="confirmResetData()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 text-xs font-semibold transition ml-auto">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            重置示範資料
+          </button>
+        </div>
+        <div class="space-y-2">
+          <textarea id="jsonImportTextarea" rows="3" placeholder="或直接貼上 JSON 備份文字後點擊「解析匯入」..." class="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs num-tab text-slate-200 focus:border-indigo-400 focus:outline-none"></textarea>
+          <div class="flex justify-end">
+            <button onclick="importJsonFromText()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+              解析匯入 JSON
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: CUSTOM CONFIRMATION ==================== -->
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="panel-card w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-slate-700/80 space-y-4">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-400"></i>
+        </div>
+        <div>
+          <h3 id="confirmModalTitle" class="text-base font-bold text-white">確認操作</h3>
+          <p id="confirmModalMessage" class="text-xs text-slate-300 mt-1 leading-relaxed"></p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeConfirmModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">取消</button>
+        <button id="confirmModalActionBtn" class="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-semibold transition">確認</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST CONTAINER ==================== -->
+  <div id="toastContainer" class="fixed bottom-16 lg:bottom-6 right-4 sm:right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+  <!-- ==================== APPLICATION JAVASCRIPT ==================== -->
+  <script>
+    /* =========================================================================
+       1. CONSTANTS, WORKER CODE & DEFAULT PORTFOLIO
+    ========================================================================= */
+    const STORAGE_KEY = 'asset_war_room_live_v3';
+
+    // Concise ~25-line Cloudflare Worker with Yahoo Finance domain whitelist & CORS
+    const WORKER_CODE_TEMPLATE = `const ALLOWED_HOSTS = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
+const CORS = { "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" };
+
+export default {
+  async fetch(request) {
+    if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
+    const raw = new URL(request.url).searchParams.get("url");
+    if (!raw) return new Response("Missing ?url=", { status: 400, headers: CORS });
+
+    let target;
+    try { target = new URL(raw); } catch { return new Response("Invalid URL", { status: 400, headers: CORS }); }
+    if (!ALLOWED_HOSTS.includes(target.hostname)) {
+      return new Response("Forbidden host", { status: 403, headers: CORS });
+    }
+
+    const res = await fetch(target.toString(), {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+    });
+    return new Response(await res.text(), {
+      status: res.status,
+      headers: { ...CORS, "Content-Type": "application/json; charset=utf-8" }
+    });
+  }
+};`;
+
+    const MARKETS = {
+      tw_stock: { label: '台股',     color: '#38bdf8', badgeCls: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
+      us_stock: { label: '美股',     color: '#818cf8', badgeCls: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' },
+      crypto:   { label: '加密貨幣', color: '#f59e0b', badgeCls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+      cash:     { label: '現金',     color: '#34d399', badgeCls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' }
+    };
+    const MARKET_KEYS = ['tw_stock', 'us_stock', 'crypto', 'cash'];
+
+    const HOLDING_COLORS = [
+      '#38bdf8', '#818cf8', '#f59e0b', '#34d399', '#fb7185',
+      '#a78bfa', '#22d3ee', '#f97316', '#4ade80', '#94a3b8'
+    ];
+
+    function createDefaultState() {
+      return {
+        exchangeRate: 32.5,
+        displayCurrency: 'TWD',     // 'TWD' | 'USD'
+        colorMode: 'tw',            // 'tw' (紅漲綠跌) | 'us' (綠漲紅跌)
+        privacyMode: false,
+        pollIntervalSec: 60,        // 0 | 10 | 30 | 60 | 300
+        cryptoStreamEnabled: true,
+        customWorkerUrl: '',
+        donutMode: 'category',      // 'category' | 'currency' | 'holding'
+        holdings: [
+          // 台股
+          { id: 'h_2330',  symbol: '2330',  name: '台積電',          category: 'tw_stock', currency: 'TWD', qty: 1000,   avgCost: 820,   currentPrice: 1060,  prevClose: 1045,  todayChange: 15,    todayPct: 1.44,  autoQuote: true },
+          { id: 'h_0050',  symbol: '0050',  name: '元大台灣50',      category: 'tw_stock', currency: 'TWD', qty: 3000,   avgCost: 162,   currentPrice: 196.5, prevClose: 194.8, todayChange: 1.7,   todayPct: 0.87,  autoQuote: true },
+          { id: 'h_00878', symbol: '00878', name: '國泰永續高股息',  category: 'tw_stock', currency: 'TWD', qty: 8000,   avgCost: 21.4,  currentPrice: 22.85, prevClose: 22.75, todayChange: 0.1,   todayPct: 0.44,  autoQuote: true },
+          // 美股
+          { id: 'h_nvda',  symbol: 'NVDA',  name: 'NVIDIA',          category: 'us_stock', currency: 'USD', qty: 45,     avgCost: 108,   currentPrice: 144.2, prevClose: 141.5, todayChange: 2.7,   todayPct: 1.91,  autoQuote: true },
+          { id: 'h_voo',   symbol: 'VOO',   name: 'Vanguard S&P 500',category: 'us_stock', currency: 'USD', qty: 15,     avgCost: 475,   currentPrice: 554.0, prevClose: 551.2, todayChange: 2.8,   todayPct: 0.51,  autoQuote: true },
+          { id: 'h_aapl',  symbol: 'AAPL',  name: 'Apple',           category: 'us_stock', currency: 'USD', qty: 25,     avgCost: 192,   currentPrice: 232.5, prevClose: 230.8, todayChange: 1.7,   todayPct: 0.74,  autoQuote: true },
+          // 加密貨幣
+          { id: 'h_btc',   symbol: 'BTC',   name: 'Bitcoin',         category: 'crypto',   currency: 'USD', qty: 0.12,   avgCost: 69000, currentPrice: 92400, prevClose: 90950, todayChange: 1450,  todayPct: 1.59,  autoQuote: true },
+          { id: 'h_eth',   symbol: 'ETH',   name: 'Ethereum',        category: 'crypto',   currency: 'USD', qty: 1.8,    avgCost: 2650,  currentPrice: 3210,  prevClose: 3155,  todayChange: 55,    todayPct: 1.74,  autoQuote: true },
+          { id: 'h_sol',   symbol: 'SOL',   name: 'Solana',          category: 'crypto',   currency: 'USD', qty: 18,     avgCost: 148,   currentPrice: 218.5, prevClose: 211.2, todayChange: 7.3,   todayPct: 3.46,  autoQuote: true },
+          // 現金
+          { id: 'h_twd',   symbol: 'TWD',   name: '台幣活存',        category: 'cash',     currency: 'TWD', qty: 350000, avgCost: 1,     currentPrice: 1,     prevClose: 1,     todayChange: 0,     todayPct: 0,     autoQuote: false },
+          { id: 'h_usd',   symbol: 'USD',   name: '美元活存',        category: 'cash',     currency: 'USD', qty: 8000,   avgCost: 1,     currentPrice: 1,     prevClose: 1,     todayChange: 0,     todayPct: 0,     autoQuote: false }
+        ]
+      };
+    }
+
+    /* =========================================================================
+       2. RUNTIME STATE
+    ========================================================================= */
+    let appState = loadState();
+    let activeTab = 'overview';     // 'overview' | 'quotes'
+    let filterMarket = 'all';       // 'all' | 'tw_stock' | 'us_stock' | 'crypto' | 'cash'
+    let searchQuery = '';
+    let sortBy = 'value_desc';
+    let inlineEditingId = null;
+    let confirmActionCallback = null;
+
+    // Live Quote Engine Metadata
+    const quoteMeta = {}; // { [id]: { sourceTag: 'WS'|'YF'|'手動', route: string, status: 'ok'|'loading'|'error', updatedAt: number } }
+    let binanceWs = null;
+    let binanceWsState = 'connecting'; // 'connected' | 'connecting' | 'fallback' | 'off'
+    let binanceReconnectTimer = null;
+    let isRefreshingStocks = false;
+    let pollSecondsLeft = appState.pollIntervalSec || 0;
+    let fxSourceStatus = 'init'; // 'live' | 'fallback' | 'manual'
+    let lastTotalValueTwd = null;
+    let lastChartSoftUpdateTs = 0;
+    let lastTelemetrySummary = '等待報價同步...';
+
+    let allocationChart = null;
+
+    /* =========================================================================
+       3. LOCALSTORAGE PERSISTENCE
+    ========================================================================= */
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return createDefaultState();
+        const parsed = JSON.parse(raw);
+        const def = createDefaultState();
+        return {
+          ...def,
+          ...parsed,
+          holdings: Array.isArray(parsed.holdings) ? parsed.holdings : def.holdings
+        };
+      } catch (err) {
+        console.error('Failed to load state:', err);
+        return createDefaultState();
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (err) {
+        console.error('Failed to save state:', err);
+      }
+    }
+
+    /* =========================================================================
+       4. FORMATTING & SEMANTIC COLORS
+    ========================================================================= */
+    function toTwd(amount, currency) {
+      const fx = Number(appState.exchangeRate) || 32.5;
+      return currency === 'USD' ? amount * fx : amount;
+    }
+
+    function twdToDisplay(twdVal, targetCurrency = appState.displayCurrency) {
+      const fx = Number(appState.exchangeRate) || 32.5;
+      return targetCurrency === 'USD' ? twdVal / fx : twdVal;
+    }
+
+    function formatMoneyFromTwd(twdVal, opts = {}) {
+      const { showSign = false, compact = false, ignorePrivacy = false, forceCurrency = null } = opts;
+      if (appState.privacyMode && !ignorePrivacy) return '••••••';
+
+      const cur = forceCurrency || appState.displayCurrency;
+      const val = twdToDisplay(twdVal, cur);
+      const isUsd = cur === 'USD';
+      const prefix = isUsd ? 'US$' : 'NT$';
+      const absVal = Math.abs(val);
+      const sign = val < 0 ? '-' : (showSign && val > 0 ? '+' : '');
+
+      if (compact) {
+        if (!isUsd && absVal >= 1e8) return `${sign}${prefix}${(absVal / 1e8).toFixed(2)}億`;
+        if (!isUsd && absVal >= 1e4) return `${sign}${prefix}${(absVal / 1e4).toFixed(1)}萬`;
+        if (isUsd && absVal >= 1e6) return `${sign}${prefix}${(absVal / 1e6).toFixed(2)}M`;
+        if (isUsd && absVal >= 1e3) return `${sign}${prefix}${(absVal / 1e3).toFixed(1)}K`;
+      }
+
+      return `${sign}${prefix}${absVal.toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: isUsd ? 2 : 0
+      })}`;
+    }
+
+    function formatNativePrice(val, currency, opts = {}) {
+      const { showSign = false, ignorePrivacy = false } = opts;
+      if (appState.privacyMode && !ignorePrivacy) return '••••••';
+      const n = Number(val) || 0;
+      const abs = Math.abs(n);
+      const sign = n < 0 ? '-' : (showSign && n > 0 ? '+' : '');
+      const prefix = currency === 'USD' ? '$' : 'NT$';
+      const maxDec = abs >= 1000 ? 2 : (abs >= 1 ? 2 : 4);
+      const minDec = (currency === 'USD' && abs > 0 && abs < 100000) ? 2 : (abs < 100 && abs % 1 !== 0 ? 2 : 0);
+      return `${sign}${prefix}${abs.toLocaleString('en-US', { minimumFractionDigits: minDec, maximumFractionDigits: maxDec })}`;
+    }
+
+    function formatQty(qty) {
+      if (appState.privacyMode) return '••••••';
+      const n = Number(qty) || 0;
+      if (n % 1 === 0) return n.toLocaleString('en-US');
+      return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+    }
+
+    function formatPct(pct, showSign = false) {
+      const n = Number(pct) || 0;
+      const sign = showSign && n > 0 ? '+' : '';
+      return `${sign}${n.toFixed(2)}%`;
+    }
+
+    function getSemanticStyles(val) {
+      const n = Number(val) || 0;
+      if (Math.abs(n) < 1e-6) {
+        return {
+          text: 'text-slate-400',
+          badge: 'bg-slate-800/80 text-slate-300 border-slate-700',
+          flash: '',
+          rowFlash: ''
+        };
+      }
+      const isUp = n > 0;
+      const useRed = appState.colorMode === 'tw' ? isUp : !isUp;
+      if (useRed) {
+        return {
+          text: 'text-rose-400',
+          badge: 'bg-rose-500/15 text-rose-300 border-rose-500/35',
+          flash: 'flash-rose',
+          rowFlash: 'row-flash-rose'
+        };
+      }
+      return {
+        text: 'text-emerald-400',
+        badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35',
+        flash: 'flash-emerald',
+        rowFlash: 'row-flash-emerald'
+      };
+    }
+
+    function triggerFlash(el, direction, isRow = false) {
+      if (!el || Math.abs(direction) < 1e-9) return;
+      const st = getSemanticStyles(direction);
+      const cls = isRow ? st.rowFlash : st.flash;
+      if (!cls) return;
+      el.classList.remove('flash-rose', 'flash-emerald', 'row-flash-rose', 'row-flash-emerald');
+      void el.offsetWidth; // trigger reflow for smooth re-animation
+      el.classList.add(cls);
+    }
+
+    function formatTimeHHMMSS(dateObj = new Date()) {
+      return dateObj.toTimeString().slice(0, 8);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    /* =========================================================================
+       5. PORTFOLIO METRICS ENGINE
+    ========================================================================= */
+    function calculateMetrics() {
+      let totalValueTwd = 0;
+      let totalCostTwd = 0;
+      let totalTodayPnlTwd = 0;
+      let totalPrevValueTwd = 0;
+
+      const byMarket = {};
+      MARKET_KEYS.forEach(k => {
+        byMarket[k] = { valueTwd: 0, costTwd: 0, todayPnlTwd: 0, count: 0 };
+      });
+      const byCurrency = { TWD: 0, USD: 0 };
+
+      const items = appState.holdings.map(h => {
+        const qty = Number(h.qty) || 0;
+        const avgCost = Number(h.avgCost) || 0;
+        const currentPrice = Number(h.currentPrice) || 0;
+        const prevClose = (typeof h.prevClose === 'number' && h.prevClose > 0) ? h.prevClose : currentPrice;
+
+        const todayChange = h.category === 'cash'
+          ? 0
+          : (typeof h.todayChange === 'number' ? h.todayChange : (currentPrice - prevClose));
+        const todayPct = h.category === 'cash'
+          ? 0
+          : (typeof h.todayPct === 'number' ? h.todayPct : (prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0));
+
+        const valueTwd = toTwd(qty * currentPrice, h.currency);
+        const costTwd = toTwd(qty * avgCost, h.currency);
+        const todayPnlTwd = h.category === 'cash' ? 0 : toTwd(qty * todayChange, h.currency);
+        const prevValueTwd = valueTwd - todayPnlTwd;
+        const unrealizedPnlTwd = valueTwd - costTwd;
+        const roiPct = costTwd > 0 ? (unrealizedPnlTwd / costTwd) * 100 : 0;
+
+        totalValueTwd += valueTwd;
+        totalCostTwd += costTwd;
+        totalTodayPnlTwd += todayPnlTwd;
+        totalPrevValueTwd += prevValueTwd;
+
+        const mKey = MARKET_KEYS.includes(h.category) ? h.category : 'cash';
+        byMarket[mKey].valueTwd += valueTwd;
+        byMarket[mKey].costTwd += costTwd;
+        byMarket[mKey].todayPnlTwd += todayPnlTwd;
+        byMarket[mKey].count += 1;
+
+        if (h.currency === 'USD') byCurrency.USD += valueTwd;
+        else byCurrency.TWD += valueTwd;
+
+        return {
+          ...h,
+          qty,
+          avgCost,
+          currentPrice,
+          prevClose,
+          todayChange,
+          todayPct,
+          valueTwd,
+          costTwd,
+          todayPnlTwd,
+          unrealizedPnlTwd,
+          roiPct
+        };
+      });
+
+      // Attach weights
+      items.forEach(item => {
+        item.weightPct = totalValueTwd > 0 ? (item.valueTwd / totalValueTwd) * 100 : 0;
+      });
+
+      const totalTodayPct = totalPrevValueTwd > 0 ? (totalTodayPnlTwd / totalPrevValueTwd) * 100 : 0;
+      const totalUnrealizedPnlTwd = totalValueTwd - totalCostTwd;
+      const totalRoiPct = totalCostTwd > 0 ? (totalUnrealizedPnlTwd / totalCostTwd) * 100 : 0;
+
+      return {
+        items,
+        totalValueTwd,
+        totalCostTwd,
+        totalTodayPnlTwd,
+        totalTodayPct,
+        totalUnrealizedPnlTwd,
+        totalRoiPct,
+        byMarket,
+        byCurrency
+      };
+    }
+
+    /* =========================================================================
+       6. MULTI-SOURCE LIVE QUOTE ENGINE
+          - Crypto: Binance WebSocket (@ticker) + REST 24hr fallback
+          - Stocks: Yahoo Finance v8 (1m/1d) + Custom Worker + 3 CORS Proxies
+          - FX: open.er-api primary + Yahoo TWD=X fallback
+    ========================================================================= */
+
+    /**
+     * Fetch JSON with 6-second AbortController timeout protection
+     */
+    async function fetchJsonWithTimeout(url, timeoutMs = 6000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (err) {
+        clearTimeout(timer);
+        throw err;
+      }
+    }
+
+    function formatCustomWorkerUrl(baseUrl, yahooUrl) {
+      const trimmed = baseUrl.trim();
+      if (!trimmed) return null;
+      if (trimmed.includes('url=')) return `${trimmed}${encodeURIComponent(yahooUrl)}`;
+      const sep = trimmed.includes('?') ? '&' : (trimmed.endsWith('/') ? '?' : '/?');
+      return `${trimmed}${sep}url=${encodeURIComponent(yahooUrl)}`;
+    }
+
+    /**
+     * Fetch single Yahoo Finance symbol through ordered proxy fallback chain
+     */
+    async function fetchYahooSymbol(symbol) {
+      const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`;
+      const routes = [];
+
+      if (appState.customWorkerUrl && appState.customWorkerUrl.trim()) {
+        routes.push({ name: 'Cloudflare Worker', url: formatCustomWorkerUrl(appState.customWorkerUrl, yahooUrl) });
+      }
+      routes.push(
+        { name: 'corsproxy.io', url: `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}` },
+        { name: 'allorigins',   url: `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}` },
+        { name: 'codetabs',     url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}` }
+      );
+
+      let lastErr = new Error('所有報價線路均無回應');
+      for (const route of routes) {
+        try {
+          const data = await fetchJsonWithTimeout(route.url, 6000);
+          const meta = data?.chart?.result?.[0]?.meta;
+          if (meta && typeof meta.regularMarketPrice === 'number' && !isNaN(meta.regularMarketPrice)) {
+            const price = meta.regularMarketPrice;
+            const prevClose = (typeof meta.chartPreviousClose === 'number' && meta.chartPreviousClose > 0)
+              ? meta.chartPreviousClose
+              : ((typeof meta.previousClose === 'number' && meta.previousClose > 0) ? meta.previousClose : price);
+            const todayChange = price - prevClose;
+            const todayPct = prevClose > 0 ? (todayChange / prevClose) * 100 : 0;
+            return { price, prevClose, todayChange, todayPct, route: route.name, resolvedSymbol: symbol };
+          }
+          if (data?.chart?.error) {
+            throw new Error(data.chart.error.description || '查無此代號');
+          }
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr;
+    }
+
+    /**
+     * Smart Taiwan stock suffix resolver: tries .TW first, then .TWO if no suffix provided
+     */
+    async function fetchStockQuote(holding) {
+      const sym = (holding.symbol || '').trim().toUpperCase();
+      if (!sym) throw new Error('未填寫代號');
+
+      const candidates = [];
+      if (holding.category === 'tw_stock' && !sym.includes('.')) {
+        candidates.push(`${sym}.TW`, `${sym}.TWO`);
+      } else {
+        candidates.push(sym);
+      }
+
+      let lastErr = null;
+      for (const candidate of candidates) {
+        try {
+          return await fetchYahooSymbol(candidate);
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('抓價失敗');
+    }
+
+    /**
+     * Fetch live USD/TWD exchange rate: open.er-api primary -> Yahoo TWD=X fallback
+     */
+    async function fetchLiveExchangeRate() {
+      try {
+        const data = await fetchJsonWithTimeout('https://open.er-api.com/v6/latest/USD', 6000);
+        const rate = data?.rates?.TWD;
+        if (typeof rate === 'number' && rate > 10 && rate < 100) {
+          appState.exchangeRate = Number(rate.toFixed(2));
+          fxSourceStatus = 'live';
+          saveState();
+          updateFxUi();
+          return true;
+        }
+      } catch (e) {
+        // fallback below
+      }
+
+      try {
+        const res = await fetchYahooSymbol('TWD=X');
+        if (res.price > 10 && res.price < 100) {
+          appState.exchangeRate = Number(res.price.toFixed(2));
+          fxSourceStatus = 'fallback';
+          saveState();
+          updateFxUi();
+          return true;
+        }
+      } catch (e) {
+        fxSourceStatus = 'manual';
+        updateFxUi();
+      }
+      return false;
+    }
+
+    function updateFxUi() {
+      const inp = document.getElementById('exchangeRateInput');
+      if (inp && document.activeElement !== inp) inp.value = appState.exchangeRate;
+      const dot = document.getElementById('fxSourceDot');
+      if (!dot) return;
+      if (fxSourceStatus === 'live') {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        dot.title = 'USD/TWD 來源：open.er-api 即時匯率';
+      } else if (fxSourceStatus === 'fallback') {
+        dot.className = 'w-2 h-2 rounded-full bg-sky-400';
+        dot.title = 'USD/TWD 來源：Yahoo Finance (TWD=X)';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        dot.title = 'USD/TWD 來源：手動設定';
+      }
+    }
+
+    /**
+     * Normalize crypto symbol to Binance USDT pair (e.g. BTC -> btcusdt)
+     */
+    function toBinancePair(symbol) {
+      const clean = (symbol || '').trim().toUpperCase().replace(/[-/]?USD[T]?$/i, '').replace(/[^A-Z0-9]/g, '');
+      return clean ? `${clean.toLowerCase()}usdt` : null;
+    }
+
+    /**
+     * Connect Binance Combined WebSocket (@ticker) for true per-second updates
+     */
+    function connectBinanceWebSocket() {
+      clearTimeout(binanceReconnectTimer);
+      if (binanceWs) {
+        try { binanceWs.onclose = null; binanceWs.close(); } catch (e) {}
+        binanceWs = null;
+      }
+
+      const cryptos = appState.holdings.filter(h => h.category === 'crypto' && h.autoQuote !== false && toBinancePair(h.symbol));
+      if (!appState.cryptoStreamEnabled || cryptos.length === 0) {
+        binanceWsState = 'off';
+        updateCryptoWsUi();
+        return;
+      }
+
+      const pairToIds = {};
+      const streams = [];
+      cryptos.forEach(h => {
+        const pair = toBinancePair(h.symbol);
+        if (!pair) return;
+        if (!pairToIds[pair]) {
+          pairToIds[pair] = [];
+          streams.push(`${pair}@ticker`);
+        }
+        pairToIds[pair].push(h.id);
+      });
+
+      binanceWsState = 'connecting';
+      updateCryptoWsUi();
+
+      try {
+        const wsUrl = `wss://stream.binance.com:9443/stream?streams=${streams.join('/')}`;
+        binanceWs = new WebSocket(wsUrl);
+
+        binanceWs.onopen = () => {
+          binanceWsState = 'connected';
+          updateCryptoWsUi();
+        };
+
+        binanceWs.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            const d = msg?.data;
+            if (!d || !d.s) return;
+            const pair = d.s.toLowerCase();
+            const price = parseFloat(d.c);
+            const changeAmt = parseFloat(d.p);
+            const changePct = parseFloat(d.P);
+            if (isNaN(price) || price <= 0) return;
+
+            const ids = pairToIds[pair] || [];
+            const changedMap = {};
+            ids.forEach(id => {
+              const h = appState.holdings.find(x => x.id === id);
+              if (!h || h.autoQuote === false) return;
+              const prevPrice = Number(h.currentPrice) || 0;
+              const diff = price - prevPrice;
+              h.currentPrice = price;
+              if (!isNaN(changeAmt)) {
+                h.todayChange = changeAmt;
+                h.prevClose = price - changeAmt;
+              }
+              if (!isNaN(changePct)) h.todayPct = changePct;
+
+              quoteMeta[id] = { sourceTag: 'WS', route: 'Binance WS', status: 'ok', updatedAt: Date.now() };
+              if (Math.abs(diff) > 1e-9) changedMap[id] = diff;
+            });
+
+            if (Object.keys(changedMap).length > 0) {
+              saveState();
+              applySurgicalLiveUpdates(changedMap);
+            }
+          } catch (e) {
+            // ignore malformed frame
+          }
+        };
+
+        binanceWs.onerror = () => {
+          binanceWsState = 'fallback';
+          updateCryptoWsUi();
+        };
+
+        binanceWs.onclose = () => {
+          if (!appState.cryptoStreamEnabled) {
+            binanceWsState = 'off';
+            updateCryptoWsUi();
+            return;
+          }
+          binanceWsState = 'fallback';
+          updateCryptoWsUi();
+          // Immediate REST fallback + schedule reconnect
+          fetchCryptoRest24hr();
+          binanceReconnectTimer = setTimeout(() => {
+            if (appState.cryptoStreamEnabled) connectBinanceWebSocket();
+          }, 10000);
+        };
+      } catch (e) {
+        binanceWsState = 'fallback';
+        updateCryptoWsUi();
+        fetchCryptoRest24hr();
+      }
+    }
+
+    /**
+     * Binance REST API 24hr ticker fallback
+     */
+    async function fetchCryptoRest24hr() {
+      const cryptos = appState.holdings.filter(h => h.category === 'crypto' && h.autoQuote !== false);
+      const changedMap = {};
+      await Promise.all(cryptos.map(async h => {
+        const pair = toBinancePair(h.symbol);
+        if (!pair) return;
+        try {
+          const data = await fetchJsonWithTimeout(`https://api.binance.com/api/v3/ticker/24hr?symbol=${pair.toUpperCase()}`, 6000);
+          const price = parseFloat(data.lastPrice);
+          const changeAmt = parseFloat(data.priceChange);
+          const changePct = parseFloat(data.priceChangePercent);
+          if (!isNaN(price) && price > 0) {
+            const diff = price - (Number(h.currentPrice) || 0);
+            h.currentPrice = price;
+            if (!isNaN(changeAmt)) {
+              h.todayChange = changeAmt;
+              h.prevClose = price - changeAmt;
+            }
+            if (!isNaN(changePct)) h.todayPct = changePct;
+            quoteMeta[h.id] = { sourceTag: 'WS', route: 'Binance REST', status: 'ok', updatedAt: Date.now() };
+            if (Math.abs(diff) > 1e-9) changedMap[h.id] = diff;
+          }
+        } catch (err) {
+          quoteMeta[h.id] = { sourceTag: 'WS', route: 'Binance', status: 'error', updatedAt: Date.now() };
+        }
+      }));
+      if (Object.keys(changedMap).length > 0) {
+        saveState();
+        applySurgicalLiveUpdates(changedMap);
+      }
+    }
+
+    function updateCryptoWsUi() {
+      const dot = document.getElementById('cryptoWsDot');
+      const lbl = document.getElementById('cryptoWsLabel');
+      if (!dot || !lbl) return;
+      if (binanceWsState === 'connected') {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        lbl.textContent = 'Binance WS：每秒連線';
+        lbl.className = 'font-semibold text-emerald-300 whitespace-nowrap';
+      } else if (binanceWsState === 'connecting') {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+        lbl.textContent = 'Binance WS：連線中';
+        lbl.className = 'font-semibold text-amber-300 whitespace-nowrap';
+      } else if (binanceWsState === 'fallback') {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        lbl.textContent = 'Binance：REST備援';
+        lbl.className = 'font-semibold text-amber-300 whitespace-nowrap';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        lbl.textContent = 'Binance WS：已暫停';
+        lbl.className = 'font-semibold text-slate-400 whitespace-nowrap';
+      }
+    }
+
+    function toggleCryptoStream() {
+      appState.cryptoStreamEnabled = !appState.cryptoStreamEnabled;
+      saveState();
+      connectBinanceWebSocket();
+      showToast(
+        appState.cryptoStreamEnabled ? '已開啟 Binance 加密貨幣每秒即時串流' : '已暫停加密貨幣 WebSocket 串流',
+        appState.cryptoStreamEnabled ? 'success' : 'info'
+      );
+    }
+
+    /**
+     * Master Polling Refresh for TW/US Stocks + FX (+ Crypto REST if WS inactive)
+     */
+    async function refreshAllQuotes(isManual = false) {
+      if (isRefreshingStocks) return;
+      isRefreshingStocks = true;
+
+      const spinner = document.getElementById('refreshSpinnerIcon');
+      if (spinner) spinner.classList.add('animate-spin');
+
+      const stockTargets = appState.holdings.filter(h =>
+        (h.category === 'tw_stock' || h.category === 'us_stock') && h.autoQuote !== false && (h.symbol || '').trim()
+      );
+      const needCryptoRest = !appState.cryptoStreamEnabled || binanceWsState !== 'connected';
+      const cryptoTargets = needCryptoRest
+        ? appState.holdings.filter(h => h.category === 'crypto' && h.autoQuote !== false && toBinancePair(h.symbol))
+        : [];
+
+      const totalTargets = stockTargets.length + cryptoTargets.length;
+      let doneCount = 0;
+      let okCount = 0;
+      const usedRoutes = new Set();
+      const changedMap = {};
+
+      stockTargets.forEach(h => {
+        quoteMeta[h.id] = { ...(quoteMeta[h.id] || {}), sourceTag: 'YF', status: 'loading' };
+      });
+      updateTelemetryText(`同步報價中 0/${totalTargets}...`);
+      if (activeTab === 'quotes') renderQuotesTab(calculateMetrics());
+
+      const fxTask = fetchLiveExchangeRate();
+
+      const stockTasks = stockTargets.map(async h => {
+        try {
+          const res = await fetchStockQuote(h);
+          const diff = res.price - (Number(h.currentPrice) || 0);
+          h.currentPrice = Number(res.price.toFixed(4));
+          h.prevClose = Number(res.prevClose.toFixed(4));
+          h.todayChange = Number(res.todayChange.toFixed(4));
+          h.todayPct = Number(res.todayPct.toFixed(2));
+          quoteMeta[h.id] = { sourceTag: 'YF', route: res.route, status: 'ok', updatedAt: Date.now() };
+          usedRoutes.add(res.route);
+          okCount++;
+          if (Math.abs(diff) > 1e-9) changedMap[h.id] = diff;
+        } catch (err) {
+          quoteMeta[h.id] = { sourceTag: 'YF', route: '失敗', status: 'error', updatedAt: Date.now() };
+        } finally {
+          doneCount++;
+          updateTelemetryText(`同步報價中 ${doneCount}/${totalTargets}...`);
+        }
+      });
+
+      const cryptoTask = cryptoTargets.length > 0
+        ? fetchCryptoRest24hr().then(() => {
+            doneCount += cryptoTargets.length;
+            okCount += cryptoTargets.length;
+            usedRoutes.add('Binance REST');
+          })
+        : Promise.resolve();
+
+      await Promise.all([fxTask, ...stockTasks, cryptoTask]);
+
+      saveState();
+      isRefreshingStocks = false;
+      if (spinner) spinner.classList.remove('animate-spin');
+      if (appState.pollIntervalSec > 0) pollSecondsLeft = appState.pollIntervalSec;
+
+      const routeStr = usedRoutes.size > 0 ? Array.from(usedRoutes).join(' / ') : (binanceWsState === 'connected' ? 'Binance WS' : '本機快取');
+      const nowStr = formatTimeHHMMSS();
+      lastTelemetrySummary = `最後更新 ${nowStr} ｜ 台美股成功 ${okCount}/${totalTargets} 檔 ｜ 線路：${routeStr}`;
+      updateTelemetryText(lastTelemetrySummary);
+
+      renderAll();
+
+      // Flash updated stock prices & rows
+      Object.entries(changedMap).forEach(([id, diff]) => {
+        const cell = document.querySelector(`[data-live-price="${id}"]`);
+        const row = document.querySelector(`tr[data-holding-id="${id}"]`);
+        if (cell) triggerFlash(cell, diff, false);
+        if (row) triggerFlash(row, diff, true);
+      });
+
+      if (isManual) {
+        if (okCount === totalTargets) {
+          showToast(`報價已同步完成（${okCount}/${totalTargets} 檔，線路：${routeStr}）`, 'success');
+        } else if (okCount > 0) {
+          showToast(`部分更新成功 (${okCount}/${totalTargets})，可於設定填寫 Cloudflare Worker 提升穩定度`, 'info');
+        } else if (totalTargets > 0) {
+          showToast('公開代理暫時限流，建議於「報價設定」填入免費 Cloudflare Worker', 'error');
+        }
+      }
+    }
+
+    function updateTelemetryText(text) {
+      const hEl = document.getElementById('headerTelemetryText');
+      const fEl = document.getElementById('tableFooterTelemetry');
+      if (hEl) hEl.textContent = text;
+      if (fEl) fEl.textContent = text;
+    }
+
+    /**
+     * Surgical DOM updater for per-second WebSocket ticks (Zero table rebuild / Zero chart flicker)
+     */
+    function applySurgicalLiveUpdates(changedMap) {
+      const metrics = calculateMetrics();
+
+      // 1. If Overview tab is visible, update KPIs, Market Summary, Top 5 & throttled Donut
+      if (activeTab === 'overview') {
+        const kpiValEl = document.getElementById('kpiTotalValue');
+        const totalDiff = lastTotalValueTwd !== null ? (metrics.totalValueTwd - lastTotalValueTwd) : 0;
+        renderOverviewKpis(metrics);
+        if (kpiValEl && Math.abs(totalDiff) > 0.5) triggerFlash(kpiValEl, totalDiff, false);
+
+        renderMarketSummary(metrics);
+        renderTopFiveHoldings(metrics);
+
+        // Throttle Doughnut chart soft update to at most once every 2 seconds
+        const now = Date.now();
+        if (allocationChart && now - lastChartSoftUpdateTs > 2000) {
+          lastChartSoftUpdateTs = now;
+          softUpdateDoughnutChart(metrics);
+        }
+      }
+
+      // 2. If Quotes tab is visible, surgically patch ONLY changed rows + footer
+      if (activeTab === 'quotes') {
+        metrics.items.forEach(item => {
+          const diff = changedMap[item.id];
+          // Update weight % for all rows smoothly, flash only changed rows
+          const weightEl = document.querySelector(`[data-live-weight="${item.id}"]`);
+          const weightBarEl = document.querySelector(`[data-live-weight-bar="${item.id}"]`);
+          if (weightEl) weightEl.textContent = `${item.weightPct.toFixed(1)}%`;
+          if (weightBarEl) weightBarEl.style.width = `${Math.min(100, item.weightPct)}%`;
+
+          if (diff === undefined) return;
+
+          const row = document.querySelector(`tr[data-holding-id="${item.id}"]`);
+          const priceEl = document.querySelector(`[data-live-price="${item.id}"]`);
+          const todayPctEl = document.querySelector(`[data-live-today-pct="${item.id}"]`);
+          const todayAmtEl = document.querySelector(`[data-live-today-amt="${item.id}"]`);
+          const valEl = document.querySelector(`[data-live-value="${item.id}"]`);
+          const pnlEl = document.querySelector(`[data-live-pnl="${item.id}"]`);
+          const roiEl = document.querySelector(`[data-live-roi="${item.id}"]`);
+
+          if (priceEl && inlineEditingId !== item.id) {
+            priceEl.textContent = formatNativePrice(item.currentPrice, item.currency);
+            triggerFlash(priceEl, diff, false);
+          }
+          if (todayPctEl) {
+            const st = getSemanticStyles(item.todayPct);
+            todayPctEl.textContent = formatPct(item.todayPct, true);
+            todayPctEl.className = `inline-block px-2 py-0.5 rounded-md text-xs font-bold num-tab border ${st.badge}`;
+          }
+          if (todayAmtEl) {
+            const st = getSemanticStyles(item.todayChange);
+            todayAmtEl.textContent = formatNativePrice(item.todayChange, item.currency, { showSign: true });
+            todayAmtEl.className = `text-[11px] num-tab mt-0.5 ${st.text}`;
+          }
+          if (valEl) valEl.textContent = formatMoneyFromTwd(item.valueTwd);
+          if (pnlEl) {
+            const st = getSemanticStyles(item.unrealizedPnlTwd);
+            pnlEl.textContent = formatMoneyFromTwd(item.unrealizedPnlTwd, { showSign: true });
+            pnlEl.className = `font-bold num-tab ${st.text}`;
+          }
+          if (roiEl) {
+            const st = getSemanticStyles(item.unrealizedPnlTwd);
+            roiEl.textContent = formatPct(item.roiPct, true);
+            roiEl.className = `inline-block mt-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-bold num-tab border ${st.badge}`;
+          }
+          if (row) triggerFlash(row, diff, true);
+        });
+        renderQuotesTableFooter(metrics);
+      }
+
+      lastTotalValueTwd = metrics.totalValueTwd;
+    }
+
+    /* =========================================================================
+       7. 1-SECOND SYSTEM CLOCK & POLLING TIMER LOOP
+    ========================================================================= */
+    function startClockAndPollingLoop() {
+      const tick = () => {
+        const clockEl = document.getElementById('liveSystemClock');
+        if (clockEl) clockEl.textContent = formatTimeHHMMSS();
+
+        const cdEl = document.getElementById('pollCountdownBadge');
+        if (appState.pollIntervalSec <= 0) {
+          if (cdEl) cdEl.textContent = '手動';
+        } else {
+          if (!isRefreshingStocks) {
+            pollSecondsLeft--;
+            if (pollSecondsLeft <= 0) {
+              pollSecondsLeft = appState.pollIntervalSec;
+              refreshAllQuotes(false);
+            }
+          }
+          if (cdEl) {
+            const sec = Math.max(0, pollSecondsLeft);
+            const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+            const ss = String(sec % 60).padStart(2, '0');
+            cdEl.textContent = isRefreshingStocks ? '抓價中' : `${mm}:${ss}`;
+          }
+        }
+      };
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    function changePollInterval(val) {
+      const sec = parseInt(val, 10) || 0;
+      appState.pollIntervalSec = sec;
+      pollSecondsLeft = sec;
+      saveState();
+      if (sec === 0) showToast('台美股已切換為手動更新（加密貨幣維持每秒即時串流）', 'info');
+      else if (sec === 10) showToast('已設定台美股每 10 秒自動更新（建議搭配 Cloudflare Worker）', 'info');
+      else showToast(`已設定台美股每 ${sec >= 60 ? (sec / 60) + ' 分鐘' : sec + ' 秒'}自動更新`, 'info');
+    }
+
+    /* =========================================================================
+       8. TOP HEADER & TAB NAVIGATION
+    ========================================================================= */
+    function renderTopConsole() {
+      updateFxUi();
+      updateCryptoWsUi();
+      updateTelemetryText(lastTelemetrySummary);
+
+      const pollSel = document.getElementById('pollIntervalSelect');
+      if (pollSel) pollSel.value = String(appState.pollIntervalSec);
+
+      // Currency buttons
+      const btnTwd = document.getElementById('btnCurrencyTWD');
+      const btnUsd = document.getElementById('btnCurrencyUSD');
+      if (appState.displayCurrency === 'TWD') {
+        btnTwd.className = 'px-2.5 py-1 rounded-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 transition';
+        btnUsd.className = 'px-2.5 py-1 rounded-[10px] text-slate-400 hover:text-slate-200 border border-transparent transition';
+      } else {
+        btnUsd.className = 'px-2.5 py-1 rounded-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 transition';
+        btnTwd.className = 'px-2.5 py-1 rounded-[10px] text-slate-400 hover:text-slate-200 border border-transparent transition';
+      }
+      document.querySelectorAll('.display-currency-label').forEach(el => {
+        el.textContent = appState.displayCurrency;
+      });
+
+      // Color mode
+      const lbl = document.getElementById('colorModeLabel');
+      const dots = document.getElementById('colorModeDots');
+      if (appState.colorMode === 'tw') {
+        lbl.textContent = '台股紅漲';
+        dots.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-400"></span><span class="w-2 h-2 rounded-full bg-emerald-400"></span>';
+      } else {
+        lbl.textContent = '美股綠漲';
+        dots.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="w-2 h-2 rounded-full bg-rose-400"></span>';
+      }
+
+      // Privacy button
+      const btnP = document.getElementById('btnPrivacy');
+      const icoP = document.getElementById('privacyIcon');
+      if (appState.privacyMode) {
+        btnP.className = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/50 text-xs font-semibold text-amber-300 transition';
+        icoP.setAttribute('data-lucide', 'eye-off');
+      } else {
+        btnP.className = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#111827] border border-slate-700/80 hover:border-slate-600 text-xs font-semibold text-slate-200 transition';
+        icoP.setAttribute('data-lucide', 'eye');
+      }
+
+      document.getElementById('navHoldingsCount').textContent = appState.holdings.length;
+
+      // Tabs styling
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+        const on = btn.dataset.tab === activeTab;
+        btn.className = on
+          ? 'nav-tab-btn inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/35 transition'
+          : 'nav-tab-btn inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent transition';
+      });
+      document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+        const on = btn.dataset.tab === activeTab;
+        btn.className = on
+          ? 'mobile-tab-btn flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 transition'
+          : 'mobile-tab-btn flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 border border-transparent transition';
+      });
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+      const target = document.getElementById(`view-${tab}`);
+      if (target) target.classList.remove('hidden');
+      renderAll();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function jumpToQuoteRow(holdingId) {
+      filterMarket = 'all';
+      searchQuery = '';
+      const searchEl = document.getElementById('quoteSearchInput');
+      if (searchEl) searchEl.value = '';
+      switchTab('quotes');
+
+      setTimeout(() => {
+        const row = document.querySelector(`tr[data-holding-id="${holdingId}"]`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.classList.remove('row-focus-cyan');
+          void row.offsetWidth;
+          row.classList.add('row-focus-cyan');
+        }
+      }, 120);
+    }
+
+    function setDisplayCurrency(cur) {
+      if (appState.displayCurrency === cur) return;
+      appState.displayCurrency = cur;
+      saveState();
+      renderAll();
+      showToast(`已切換顯示幣別為 ${cur}`, 'info');
+    }
+
+    function toggleColorMode() {
+      appState.colorMode = appState.colorMode === 'tw' ? 'us' : 'tw';
+      saveState();
+      renderAll();
+      showToast(`已切換為${appState.colorMode === 'tw' ? '台股紅漲綠跌' : '美股綠漲紅跌'}`, 'info');
+    }
+
+    function togglePrivacyMode() {
+      appState.privacyMode = !appState.privacyMode;
+      saveState();
+      renderAll();
+      showToast(appState.privacyMode ? '已開啟隱私模式（金額與數量已遮罩）' : '已關閉隱私模式', 'info');
+    }
+
+    /* =========================================================================
+       9. TAB 1: 📊 資產總覽 RENDERER
+    ========================================================================= */
+    function renderOverviewKpis(metrics) {
+      // KPI 1: Total Asset Value + Secondary Currency Equivalent
+      document.getElementById('kpiTotalValue').textContent = formatMoneyFromTwd(metrics.totalValueTwd);
+      const secCur = appState.displayCurrency === 'TWD' ? 'USD' : 'TWD';
+      document.getElementById('kpiSecondaryValue').textContent = `≈ ${formatMoneyFromTwd(metrics.totalValueTwd, { forceCurrency: secCur })}`;
+
+      // KPI 2: Today Estimated P&L
+      const todaySt = getSemanticStyles(metrics.totalTodayPnlTwd);
+      const todayValEl = document.getElementById('kpiTodayPnl');
+      todayValEl.textContent = formatMoneyFromTwd(metrics.totalTodayPnlTwd, { showSign: true });
+      todayValEl.className = `text-2xl sm:text-[26px] font-extrabold num-tab tracking-tight inline-block px-1 -mx-1 ${todaySt.text}`;
+
+      const todayBadge = document.getElementById('kpiTodayPctBadge');
+      todayBadge.textContent = formatPct(metrics.totalTodayPct, true);
+      todayBadge.className = `px-2 py-0.5 rounded-full font-bold num-tab text-[11px] border ${todaySt.badge}`;
+
+      // KPI 3: Cumulative Unrealized P&L
+      const cumSt = getSemanticStyles(metrics.totalUnrealizedPnlTwd);
+      const cumEl = document.getElementById('kpiUnrealizedPnl');
+      cumEl.textContent = formatMoneyFromTwd(metrics.totalUnrealizedPnlTwd, { showSign: true });
+      cumEl.className = `text-2xl sm:text-[26px] font-extrabold num-tab tracking-tight inline-block px-1 -mx-1 ${cumSt.text}`;
+
+      document.getElementById('kpiTotalCost').textContent = formatMoneyFromTwd(metrics.totalCostTwd);
+      const roiBadge = document.getElementById('kpiTotalRoiBadge');
+      roiBadge.textContent = formatPct(metrics.totalRoiPct, true);
+      roiBadge.className = `px-2 py-0.5 rounded-full font-bold num-tab text-[11px] border ${cumSt.badge}`;
+
+      // KPI 4: Quick Allocation Overview
+      document.getElementById('kpiTotalHoldingsCount').textContent = `${metrics.items.length} 檔標的`;
+
+      const barEl = document.getElementById('kpiAllocationBar');
+      barEl.innerHTML = MARKET_KEYS.map(k => {
+        const pct = metrics.totalValueTwd > 0 ? (metrics.byMarket[k].valueTwd / metrics.totalValueTwd) * 100 : 0;
+        if (pct <= 0) return '';
+        return `<div style="width:${pct}%; background-color:${MARKETS[k].color}" class="h-full transition-all duration-300" title="${MARKETS[k].label} ${pct.toFixed(1)}%"></div>`;
+      }).join('');
+
+      const gridEl = document.getElementById('kpiAllocationQuickGrid');
+      gridEl.innerHTML = MARKET_KEYS.map(k => {
+        const m = metrics.byMarket[k];
+        const pct = metrics.totalValueTwd > 0 ? (m.valueTwd / metrics.totalValueTwd) * 100 : 0;
+        return `
+          <div class="flex items-center justify-between gap-1">
+            <span class="inline-flex items-center gap-1.5 text-slate-300 truncate">
+              <span class="w-2 h-2 rounded-full shrink-0" style="background-color:${MARKETS[k].color}"></span>
+              <span>${MARKETS[k].label}</span>
+              <span class="text-slate-500 num-tab">(${m.count})</span>
+            </span>
+            <span class="font-bold text-slate-200 num-tab">${pct.toFixed(1)}%</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getDoughnutSlices(metrics) {
+      const slices = [];
+      if (appState.donutMode === 'category') {
+        MARKET_KEYS.forEach(k => {
+          const v = metrics.byMarket[k].valueTwd;
+          if (v > 0) slices.push({ label: MARKETS[k].label, valueTwd: v, color: MARKETS[k].color });
+        });
+      } else if (appState.donutMode === 'currency') {
+        if (metrics.byCurrency.TWD > 0) slices.push({ label: '新台幣 (TWD)', valueTwd: metrics.byCurrency.TWD, color: '#38bdf8' });
+        if (metrics.byCurrency.USD > 0) slices.push({ label: '美元 (USD)', valueTwd: metrics.byCurrency.USD, color: '#818cf8' });
+      } else {
+        // Individual holdings (Top 8 + Others if more)
+        const sorted = [...metrics.items].filter(i => i.valueTwd > 0).sort((a, b) => b.valueTwd - a.valueTwd);
+        const top = sorted.slice(0, 8);
+        const rest = sorted.slice(8);
+        top.forEach((item, idx) => {
+          slices.push({
+            label: `${item.symbol} ${item.name}`,
+            valueTwd: item.valueTwd,
+            color: HOLDING_COLORS[idx % HOLDING_COLORS.length]
+          });
+        });
+        if (rest.length > 0) {
+          const restSum = rest.reduce((s, i) => s + i.valueTwd, 0);
+          slices.push({ label: `其他 (${rest.length} 檔)`, valueTwd: restSum, color: '#64748b' });
+        }
+      }
+      slices.sort((a, b) => b.valueTwd - a.valueTwd);
+      return slices;
+    }
+
+    function renderDoughnutLegend(slices, totalValueTwd) {
+      const el = document.getElementById('allocationLegend');
+      if (slices.length === 0) {
+        el.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">尚無持倉資料</p>';
+        return;
+      }
+      el.innerHTML = slices.map(s => {
+        const pct = totalValueTwd > 0 ? (s.valueTwd / totalValueTwd) * 100 : 0;
+        return `
+          <div class="flex items-center justify-between gap-2 text-xs py-1 px-2 rounded-lg hover:bg-slate-800/50 transition">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color:${s.color}"></span>
+              <span class="text-slate-200 font-medium truncate">${escapeHtml(s.label)}</span>
+            </div>
+            <div class="flex items-center gap-3 shrink-0 num-tab">
+              <span class="text-slate-300 font-semibold">${formatMoneyFromTwd(s.valueTwd)}</span>
+              <span class="w-12 text-right font-bold text-cyan-300">${pct.toFixed(1)}%</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function softUpdateDoughnutChart(metrics) {
+      const slices = getDoughnutSlices(metrics);
+      document.getElementById('donutCenterTotal').textContent = formatMoneyFromTwd(metrics.totalValueTwd, { compact: true });
+      if (allocationChart) {
+        allocationChart.data.labels = slices.map(s => s.label);
+        allocationChart.data.datasets[0].data = slices.map(s => twdToDisplay(s.valueTwd));
+        allocationChart.data.datasets[0].backgroundColor = slices.map(s => s.color);
+        allocationChart.update('none');
+      }
+      renderDoughnutLegend(slices, metrics.totalValueTwd);
+    }
+
+    function renderDoughnutChart(metrics) {
+      // Update switcher button styles
+      const modes = [
+        { key: 'category', id: 'btnDonutCategory' },
+        { key: 'currency', id: 'btnDonutCurrency' },
+        { key: 'holding',  id: 'btnDonutHolding' }
+      ];
+      modes.forEach(m => {
+        const btn = document.getElementById(m.id);
+        const on = appState.donutMode === m.key;
+        btn.className = on
+          ? 'px-2.5 py-1 rounded-[9px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 transition'
+          : 'px-2.5 py-1 rounded-[9px] text-slate-400 hover:text-slate-200 border border-transparent transition';
+      });
+
+      const slices = getDoughnutSlices(metrics);
+      document.getElementById('donutCenterTotal').textContent = formatMoneyFromTwd(metrics.totalValueTwd, { compact: true });
+
+      const ctx = document.getElementById('allocationChart').getContext('2d');
+      if (allocationChart) allocationChart.destroy();
+
+      allocationChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: slices.map(s => s.label),
+          datasets: [{
+            data: slices.map(s => twdToDisplay(s.valueTwd)),
+            backgroundColor: slices.map(s => s.color),
+            borderColor: '#111827',
+            borderWidth: 3,
+            hoverOffset: 7
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '68%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(9, 13, 22, 0.96)',
+              borderColor: 'rgba(51, 65, 85, 0.9)',
+              borderWidth: 1,
+              padding: 10,
+              callbacks: {
+                label: (ctxItem) => {
+                  const s = slices[ctxItem.dataIndex];
+                  const pct = metrics.totalValueTwd > 0 ? (s.valueTwd / metrics.totalValueTwd) * 100 : 0;
+                  return ` ${formatMoneyFromTwd(s.valueTwd)} (${pct.toFixed(1)}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      renderDoughnutLegend(slices, metrics.totalValueTwd);
+    }
+
+    function setDonutMode(mode) {
+      appState.donutMode = mode;
+      saveState();
+      renderDoughnutChart(calculateMetrics());
+    }
+
+    function renderMarketSummary(metrics) {
+      const el = document.getElementById('marketSummaryGrid');
+      el.innerHTML = MARKET_KEYS.map(k => {
+        const m = metrics.byMarket[k];
+        const info = MARKETS[k];
+        const pnl = m.valueTwd - m.costTwd;
+        const roi = m.costTwd > 0 ? (pnl / m.costTwd) * 100 : 0;
+        const weight = metrics.totalValueTwd > 0 ? (m.valueTwd / metrics.totalValueTwd) * 100 : 0;
+        const st = getSemanticStyles(pnl);
+
+        return `
+          <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/90 hover:border-slate-700 transition">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full" style="background-color:${info.color}"></span>
+                <span class="text-xs font-bold text-white">${info.label}</span>
+                <span class="text-[11px] text-slate-500 num-tab">${m.count} 檔</span>
+              </div>
+              <span class="text-xs font-bold text-cyan-300 num-tab">${weight.toFixed(1)}%</span>
+            </div>
+            <div class="mt-2.5 flex items-baseline justify-between gap-2">
+              <span class="text-base font-extrabold text-white num-tab">${formatMoneyFromTwd(m.valueTwd)}</span>
+              <span class="px-1.5 py-0.5 rounded-md text-[11px] font-bold num-tab border ${st.badge}">
+                ${k === 'cash' ? '0.00%' : formatPct(roi, true)}
+              </span>
+            </div>
+            <div class="mt-1.5 flex items-center justify-between text-[11px] text-slate-400 num-tab">
+              <span>未實現損益</span>
+              <span class="font-semibold ${st.text}">${k === 'cash' ? 'NT$0' : formatMoneyFromTwd(pnl, { showSign: true })}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderTopFiveHoldings(metrics) {
+      const el = document.getElementById('topFiveHoldingsList');
+      const top5 = [...metrics.items]
+        .sort((a, b) => b.valueTwd - a.valueTwd)
+        .slice(0, 5);
+
+      if (top5.length === 0) {
+        el.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">尚無持倉標的</p>';
+        return;
+      }
+
+      el.innerHTML = top5.map((item, idx) => {
+        const mInfo = MARKETS[item.category] || MARKETS.cash;
+        const todaySt = getSemanticStyles(item.todayPct);
+        return `
+          <button onclick="jumpToQuoteRow('${item.id}')" class="w-full text-left p-3 rounded-xl bg-slate-950/75 hover:bg-slate-900 border border-slate-800/80 hover:border-cyan-500/40 transition flex items-center justify-between gap-3 group">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="w-6 h-6 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-bold text-slate-400 group-hover:text-cyan-300 flex items-center justify-center num-tab shrink-0">${idx + 1}</span>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-extrabold text-white num-tab">${escapeHtml(item.symbol)}</span>
+                  <span class="text-xs text-slate-300 truncate">${escapeHtml(item.name)}</span>
+                  <span class="hidden sm:inline-block text-[10px] font-semibold px-1.5 py-0.2 rounded border ${mInfo.badgeCls}">${mInfo.label}</span>
+                </div>
+                <div class="text-[11px] text-slate-400 num-tab mt-0.5">
+                  現價 <strong class="text-slate-200">${formatNativePrice(item.currentPrice, item.currency)}</strong> · 市值 ${formatMoneyFromTwd(item.valueTwd)}
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 shrink-0 num-tab">
+              <div class="text-right">
+                <span class="inline-block px-2 py-0.5 rounded-md text-xs font-bold border ${todaySt.badge}">${formatPct(item.todayPct, true)}</span>
+                <div class="text-[11px] text-cyan-300 font-semibold mt-0.5">佔比 ${item.weightPct.toFixed(1)}%</div>
+              </div>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition"></i>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderOverviewTab(metrics) {
+      lastTotalValueTwd = metrics.totalValueTwd;
+      renderOverviewKpis(metrics);
+      renderDoughnutChart(metrics);
+      renderMarketSummary(metrics);
+      renderTopFiveHoldings(metrics);
+    }
+
+    /* =========================================================================
+       10. TAB 2: ⚡ 即時報價 RENDERER
+    ========================================================================= */
+    function getFilteredSortedItems(metrics) {
+      const q = searchQuery.trim().toLowerCase();
+      const list = metrics.items.filter(item => {
+        if (filterMarket !== 'all' && item.category !== filterMarket) return false;
+        if (q) {
+          const hay = `${item.symbol} ${item.name}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      list.sort((a, b) => {
+        switch (sortBy) {
+          case 'today_desc': return b.todayPct - a.todayPct;
+          case 'roi_desc':   return b.roiPct - a.roiPct;
+          case 'symbol_asc': return a.symbol.localeCompare(b.symbol);
+          case 'value_desc':
+          default:           return b.valueTwd - a.valueTwd;
+        }
+      });
+      return list;
+    }
+
+    function getSourceBadgeHtml(item) {
+      if (item.category === 'cash' || item.autoQuote === false) {
+        return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 border border-slate-700 text-slate-400" title="手動維護"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>手動</span>`;
+      }
+      const meta = quoteMeta[item.id];
+      if (item.category === 'crypto') {
+        const isLive = meta?.status === 'ok' || binanceWsState === 'connected';
+        const dotCls = isLive ? 'bg-emerald-400 animate-pulse' : (meta?.status === 'error' ? 'bg-rose-400' : 'bg-amber-400');
+        return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-300" title="Binance WebSocket 即時每秒串流"><span class="w-1.5 h-1.5 rounded-full ${dotCls}"></span>WS</span>`;
+      }
+      // TW / US Stock (Yahoo Finance)
+      if (meta?.status === 'loading') {
+        return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 border border-sky-500/35 text-sky-300"><span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping"></span>YF</span>`;
+      }
+      if (meta?.status === 'error') {
+        return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 border border-rose-500/35 text-rose-300" title="Yahoo Finance 抓價失敗，可點擊現價手動輸入或設定 Worker"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>YF!</span>`;
+      }
+      return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 border border-sky-500/35 text-sky-300" title="Yahoo Finance (${escapeHtml(meta?.route || '待命')})"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>YF</span>`;
+    }
+
+    function renderQuotesTableFooter(metrics) {
+      const list = getFilteredSortedItems(metrics);
+      const tfoot = document.getElementById('quotesTableFoot');
+      if (!tfoot || list.length === 0) {
+        if (tfoot) tfoot.innerHTML = '';
+        return;
+      }
+
+      const sumVal = list.reduce((s, i) => s + i.valueTwd, 0);
+      const sumCost = list.reduce((s, i) => s + i.costTwd, 0);
+      const sumToday = list.reduce((s, i) => s + i.todayPnlTwd, 0);
+      const sumPnl = sumVal - sumCost;
+      const sumRoi = sumCost > 0 ? (sumPnl / sumCost) * 100 : 0;
+      const sumWeight = metrics.totalValueTwd > 0 ? (sumVal / metrics.totalValueTwd) * 100 : 0;
+      const todaySt = getSemanticStyles(sumToday);
+      const pnlSt = getSemanticStyles(sumPnl);
+
+      tfoot.innerHTML = `
+        <tr>
+          <td colspan="2" class="py-3.5 pr-3 text-xs text-slate-300">篩選合計（${list.length} 檔）</td>
+          <td class="py-3.5 px-2 text-right num-tab text-xs ${todaySt.text}">${formatMoneyFromTwd(sumToday, { showSign: true })}</td>
+          <td class="py-3.5 px-2 text-right num-tab text-xs text-slate-400">總成本 ${formatMoneyFromTwd(sumCost)}</td>
+          <td class="py-3.5 px-2 text-right num-tab text-white">
+            <div>${formatMoneyFromTwd(sumVal)}</div>
+            <div class="text-[11px] text-cyan-300">${sumWeight.toFixed(1)}%</div>
+          </td>
+          <td class="py-3.5 px-2 text-right num-tab ${pnlSt.text}">
+            <div>${formatMoneyFromTwd(sumPnl, { showSign: true })}</div>
+            <div class="text-[11px]">${formatPct(sumRoi, true)}</div>
+          </td>
+          <td></td>
+        </tr>
+      `;
+    }
+
+    function renderQuotesTab(metrics) {
+      // Filter pills
+      const pills = [
+        { key: 'all',      label: '全部' },
+        { key: 'tw_stock', label: '台股' },
+        { key: 'us_stock', label: '美股' },
+        { key: 'crypto',   label: '加密貨幣' },
+        { key: 'cash',     label: '現金' }
+      ];
+      document.getElementById('marketFilterPills').innerHTML = pills.map(p => {
+        const count = p.key === 'all' ? metrics.items.length : metrics.items.filter(i => i.category === p.key).length;
+        const on = filterMarket === p.key;
+        const cls = on
+          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+          : 'bg-slate-950/90 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700';
+        return `
+          <button onclick="setMarketFilter('${p.key}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${cls}">
+            <span>${p.label}</span>
+            <span class="px-1.5 py-0.2 rounded-md text-[10px] bg-slate-900 num-tab">${count}</span>
+          </button>
+        `;
+      }).join('');
+
+      const list = getFilteredSortedItems(metrics);
+      const tbody = document.getElementById('quotesTableBody');
+
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-12 text-center text-slate-400 text-sm">找不到符合篩選條件的標的</td></tr>';
+        document.getElementById('quotesTableFoot').innerHTML = '';
+        return;
+      }
+
+      tbody.innerHTML = list.map(item => {
+        const mInfo = MARKETS[item.category] || MARKETS.cash;
+        const todaySt = getSemanticStyles(item.todayPct);
+        const pnlSt = getSemanticStyles(item.unrealizedPnlTwd);
+
+        const isEditing = inlineEditingId === item.id;
+        const priceCellHtml = isEditing
+          ? `<input id="inlinePriceInput_${item.id}" type="number" step="any" min="0" value="${item.currentPrice}" onkeydown="handleInlinePriceKey(event, '${item.id}')" onblur="commitInlinePrice('${item.id}')" class="w-24 px-2 py-1 rounded-lg bg-slate-950 border border-cyan-400 text-right text-xs font-bold text-white num-tab focus:outline-none no-spinner" />`
+          : `<button onclick="startInlinePriceEdit('${item.id}')" class="group inline-flex items-center gap-1 px-1.5 py-1 rounded-lg hover:bg-slate-800/90 border border-transparent hover:border-slate-700 transition font-bold text-white num-tab" title="點擊行內手動覆寫現價">
+               <span data-live-price="${item.id}" class="px-1 py-0.5">${formatNativePrice(item.currentPrice, item.currency)}</span>
+               <i data-lucide="pencil" class="w-3 h-3 text-slate-600 group-hover:text-cyan-400"></i>
+             </button>`;
+
+        return `
+          <tr data-holding-id="${item.id}" class="hover:bg-slate-800/35 transition">
+            <!-- 1. Symbol / Name / Market / Source -->
+            <td class="py-3.5 pr-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-1.5 h-10 rounded-full shrink-0" style="background-color:${mInfo.color}"></div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="font-extrabold text-white num-tab">${escapeHtml(item.symbol)}</span>
+                    <span class="text-xs font-medium text-slate-300 truncate">${escapeHtml(item.name)}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 mt-1">
+                    <span class="text-[10px] font-semibold px-1.5 py-0.2 rounded border ${mInfo.badgeCls}">${mInfo.label}</span>
+                    ${getSourceBadgeHtml(item)}
+                    <span class="text-[10px] font-bold text-slate-500 num-tab">${item.currency}</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <!-- 2. Live Price (inline editable) -->
+            <td class="py-3.5 px-2 text-right whitespace-nowrap">${priceCellHtml}</td>
+
+            <!-- 3. Today's Change (% & unit amount) -->
+            <td class="py-3.5 px-2 text-right whitespace-nowrap">
+              ${item.category === 'cash'
+                ? `<span class="text-xs text-slate-500 num-tab">0.00%</span>`
+                : `<div>
+                     <span data-live-today-pct="${item.id}" class="inline-block px-2 py-0.5 rounded-md text-xs font-bold num-tab border ${todaySt.badge}">${formatPct(item.todayPct, true)}</span>
+                     <div data-live-today-amt="${item.id}" class="text-[11px] num-tab mt-0.5 ${todaySt.text}">${formatNativePrice(item.todayChange, item.currency, { showSign: true })}</div>
+                   </div>`}
+            </td>
+
+            <!-- 4. Quantity / Avg Cost -->
+            <td class="py-3.5 px-2 text-right whitespace-nowrap num-tab">
+              <div class="text-slate-100 font-semibold">${formatQty(item.qty)}</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">均價 ${formatNativePrice(item.avgCost, item.currency)}</div>
+            </td>
+
+            <!-- 5. Live Market Value / Weight Bar -->
+            <td class="py-3.5 px-2 text-right whitespace-nowrap num-tab">
+              <div data-live-value="${item.id}" class="font-bold text-white">${formatMoneyFromTwd(item.valueTwd)}</div>
+              <div class="mt-1 flex items-center justify-end gap-1.5">
+                <div class="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                  <div data-live-weight-bar="${item.id}" class="h-full rounded-full transition-all duration-300" style="width:${Math.min(100, item.weightPct)}%; background-color:${mInfo.color}"></div>
+                </div>
+                <span data-live-weight="${item.id}" class="text-[11px] font-semibold text-cyan-300 w-10 text-right">${item.weightPct.toFixed(1)}%</span>
+              </div>
+            </td>
+
+            <!-- 6. Unrealized P&L / ROI -->
+            <td class="py-3.5 px-2 text-right whitespace-nowrap num-tab">
+              ${item.category === 'cash'
+                ? `<span class="text-xs text-slate-500">--</span>`
+                : `<div data-live-pnl="${item.id}" class="font-bold ${pnlSt.text}">${formatMoneyFromTwd(item.unrealizedPnlTwd, { showSign: true })}</div>
+                   <span data-live-roi="${item.id}" class="inline-block mt-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-bold border ${pnlSt.badge}">${formatPct(item.roiPct, true)}</span>`}
+            </td>
+
+            <!-- 7. Actions -->
+            <td class="py-3.5 pl-2 text-center whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <button onclick="openHoldingModal('${item.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-slate-800 transition" title="編輯標的">
+                  <i data-lucide="edit-3" class="w-4 h-4"></i>
+                </button>
+                <button onclick="confirmDeleteHolding('${item.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/15 transition" title="刪除標的">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      renderQuotesTableFooter(metrics);
+
+      if (inlineEditingId) {
+        const inp = document.getElementById(`inlinePriceInput_${inlineEditingId}`);
+        if (inp) { inp.focus(); inp.select(); }
+      }
+    }
+
+    function setMarketFilter(market) {
+      filterMarket = market;
+      renderQuotesTab(calculateMetrics());
+      lucide.createIcons();
+    }
+
+    function startInlinePriceEdit(id) {
+      inlineEditingId = id;
+      renderQuotesTab(calculateMetrics());
+      lucide.createIcons();
+    }
+
+    function handleInlinePriceKey(e, id) {
+      if (e.key === 'Enter') { e.preventDefault(); commitInlinePrice(id); }
+      else if (e.key === 'Escape') {
+        inlineEditingId = null;
+        renderQuotesTab(calculateMetrics());
+        lucide.createIcons();
+      }
+    }
+
+    function commitInlinePrice(id) {
+      if (inlineEditingId !== id) return;
+      const inp = document.getElementById(`inlinePriceInput_${id}`);
+      const val = inp ? parseFloat(inp.value) : NaN;
+      inlineEditingId = null;
+
+      if (!isNaN(val) && val >= 0) {
+        const h = appState.holdings.find(x => x.id === id);
+        if (h && h.currentPrice !== val) {
+          h.currentPrice = val;
+          if (h.prevClose > 0) {
+            h.todayChange = val - h.prevClose;
+            h.todayPct = (h.todayChange / h.prevClose) * 100;
+          }
+          quoteMeta[id] = { sourceTag: '手動', route: '手動覆寫', status: 'ok', updatedAt: Date.now() };
+          saveState();
+          showToast(`已手動覆寫 ${h.symbol} 現價為 ${formatNativePrice(val, h.currency, { ignorePrivacy: true })}`, 'success');
+        }
+      }
+      renderAll();
+    }
+
+    /* =========================================================================
+       11. ADD / EDIT / DELETE HOLDING MODAL
+    ========================================================================= */
+    function openHoldingModal(editId = null) {
+      const modal = document.getElementById('holdingModal');
+      const titleEl = document.getElementById('holdingModalTitle');
+      document.getElementById('holdingForm').reset();
+
+      if (editId) {
+        const h = appState.holdings.find(x => x.id === editId);
+        if (!h) return;
+        titleEl.innerHTML = '<i data-lucide="edit-3" class="w-5 h-5 text-cyan-400"></i><span>編輯標的</span>';
+        document.getElementById('formItemId').value = h.id;
+        document.getElementById('formCategory').value = h.category;
+        document.getElementById('formCurrency').value = h.currency;
+        document.getElementById('formSymbol').value = h.symbol;
+        document.getElementById('formName').value = h.name;
+        document.getElementById('formQty').value = h.qty;
+        document.getElementById('formAvgCost').value = h.avgCost;
+        document.getElementById('formCurrentPrice').value = h.currentPrice;
+        document.getElementById('formAutoQuote').checked = h.autoQuote !== false;
+        onFormCategoryChange(false);
+      } else {
+        titleEl.innerHTML = '<i data-lucide="plus-circle" class="w-5 h-5 text-cyan-400"></i><span>新增標的</span>';
+        document.getElementById('formItemId').value = '';
+        document.getElementById('formCategory').value = 'tw_stock';
+        document.getElementById('formCurrency').value = 'TWD';
+        document.getElementById('formQty').value = 1000;
+        document.getElementById('formCurrentPrice').value = '';
+        document.getElementById('formAutoQuote').checked = true;
+        onFormCategoryChange(true);
+      }
+
+      updateModalLivePreview();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function closeHoldingModal() {
+      const modal = document.getElementById('holdingModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function onFormCategoryChange(applySmartDefaults) {
+      const cat = document.getElementById('formCategory').value;
+      const symEl = document.getElementById('formSymbol');
+      const hintEl = document.getElementById('formSymbolHint');
+      const qtyLbl = document.getElementById('labelFormQty');
+      const costLbl = document.getElementById('labelFormAvgCost');
+      const autoEl = document.getElementById('formAutoQuote');
+
+      if (cat === 'tw_stock') {
+        symEl.placeholder = '2330 / 0050 / 8069';
+        hintEl.textContent = '台股直接輸入純數字代號，系統自動先查 .TW（上市），若無資料自動轉查 .TWO（上櫃）。';
+        qtyLbl.textContent = '持有股數 *';
+        costLbl.textContent = '平均成本（原幣）*';
+      } else if (cat === 'us_stock') {
+        symEl.placeholder = 'NVDA / VOO / AAPL';
+        hintEl.textContent = '美股直接輸入英文代號（如 NVDA、VOO、AAPL、TSLA）。';
+        qtyLbl.textContent = '持有股數 *';
+        costLbl.textContent = '平均成本（美元）*';
+      } else if (cat === 'crypto') {
+        symEl.placeholder = 'BTC / ETH / SOL';
+        hintEl.textContent = '加密貨幣輸入幣種代號，系統自動轉為小寫 USDT 交易對訂閱 Binance WebSocket 每秒串流。';
+        qtyLbl.textContent = '持有顆數 *';
+        costLbl.textContent = '平均買入均價（美元）*';
+      } else {
+        symEl.placeholder = 'TWD / USD';
+        hintEl.textContent = '現金建議將持有數量填入存款餘額，平均成本與現價維持 1。';
+        qtyLbl.textContent = '現金餘額 *';
+        costLbl.textContent = '單位成本（建議填 1）*';
+      }
+
+      if (applySmartDefaults && !document.getElementById('formItemId').value) {
+        if (cat === 'us_stock' || cat === 'crypto') document.getElementById('formCurrency').value = 'USD';
+        else if (cat === 'tw_stock') document.getElementById('formCurrency').value = 'TWD';
+        autoEl.checked = cat !== 'cash';
+        if (cat === 'cash') {
+          document.getElementById('formAvgCost').value = 1;
+          document.getElementById('formCurrentPrice').value = 1;
+        }
+      }
+      updateModalLivePreview();
+    }
+
+    function updateModalLivePreview() {
+      const cur = document.getElementById('formCurrency').value;
+      const qty = parseFloat(document.getElementById('formQty').value) || 0;
+      const cost = parseFloat(document.getElementById('formAvgCost').value) || 0;
+      const rawPrice = document.getElementById('formCurrentPrice').value;
+      const price = rawPrice === '' ? cost : (parseFloat(rawPrice) || 0);
+
+      const valTwd = toTwd(qty * price, cur);
+      const pnlTwd = valTwd - toTwd(qty * cost, cur);
+      const st = getSemanticStyles(pnlTwd);
+
+      document.getElementById('modalPreviewValue').textContent = formatMoneyFromTwd(valTwd, { ignorePrivacy: true });
+      const pnlEl = document.getElementById('modalPreviewPnl');
+      pnlEl.textContent = formatMoneyFromTwd(pnlTwd, { showSign: true, ignorePrivacy: true });
+      pnlEl.className = `num-tab text-sm ${st.text}`;
+    }
+
+    function handleHoldingSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('formItemId').value;
+      const category = document.getElementById('formCategory').value;
+      const currency = document.getElementById('formCurrency').value;
+      const symbol = document.getElementById('formSymbol').value.trim().toUpperCase();
+      const name = document.getElementById('formName').value.trim();
+      const qty = parseFloat(document.getElementById('formQty').value) || 0;
+      const avgCost = parseFloat(document.getElementById('formAvgCost').value) || 0;
+      const rawPrice = document.getElementById('formCurrentPrice').value;
+      const currentPrice = rawPrice === '' ? avgCost : (parseFloat(rawPrice) || 0);
+      const autoQuote = category === 'cash' ? false : document.getElementById('formAutoQuote').checked;
+
+      if (!symbol || !name) {
+        showToast('請完整填寫代號與名稱', 'error');
+        return;
+      }
+
+      const existing = id ? appState.holdings.find(x => x.id === id) : null;
+      const item = {
+        id: id || `h_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        symbol,
+        name,
+        category,
+        currency,
+        qty,
+        avgCost,
+        currentPrice,
+        prevClose: existing?.prevClose || currentPrice,
+        todayChange: existing?.todayChange || 0,
+        todayPct: existing?.todayPct || 0,
+        autoQuote
+      };
+
+      if (id) {
+        const idx = appState.holdings.findIndex(x => x.id === id);
+        if (idx >= 0) appState.holdings[idx] = item;
+        showToast(`已更新標的 ${symbol} (${name})`, 'success');
+      } else {
+        appState.holdings.unshift(item);
+        showToast(`已新增標的 ${symbol} (${name})`, 'success');
+      }
+
+      saveState();
+      closeHoldingModal();
+      renderAll();
+
+      if (category === 'crypto') {
+        connectBinanceWebSocket();
+      } else if (autoQuote && (category === 'tw_stock' || category === 'us_stock')) {
+        refreshAllQuotes(false);
+      }
+    }
+
+    function confirmDeleteHolding(id) {
+      const h = appState.holdings.find(x => x.id === id);
+      if (!h) return;
+      openConfirmModal(
+        '刪除標的',
+        `確定要從資產戰情室中移除「${h.symbol} ${h.name}」嗎？`,
+        () => {
+          const wasCrypto = h.category === 'crypto';
+          appState.holdings = appState.holdings.filter(x => x.id !== id);
+          saveState();
+          renderAll();
+          if (wasCrypto) connectBinanceWebSocket();
+          showToast(`已刪除 ${h.symbol}`, 'info');
+        }
+      );
+    }
+
+    /* =========================================================================
+       12. SETTINGS, CLOUDFLARE WORKER & JSON BACKUP MODAL
+    ========================================================================= */
+    function openSettingsModal() {
+      document.getElementById('workerUrlInput').value = appState.customWorkerUrl || '';
+      document.getElementById('workerCodeBlock').textContent = WORKER_CODE_TEMPLATE;
+      document.getElementById('workerTestResult').classList.add('hidden');
+      document.getElementById('jsonImportTextarea').value = '';
+
+      const modal = document.getElementById('settingsModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function closeSettingsModal() {
+      const modal = document.getElementById('settingsModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveWorkerUrl() {
+      const val = document.getElementById('workerUrlInput').value.trim();
+      appState.customWorkerUrl = val;
+      saveState();
+      showToast(val ? '已儲存自訂 Cloudflare Worker 代理網址' : '已清除自訂代理，恢復使用內建公開備援線路', 'success');
+    }
+
+    async function testWorkerConnection() {
+      const inputVal = document.getElementById('workerUrlInput').value.trim();
+      const resBox = document.getElementById('workerTestResult');
+      resBox.classList.remove('hidden');
+      resBox.className = 'text-xs text-cyan-300 p-2.5 rounded-lg bg-slate-900 border border-slate-800 num-tab';
+      resBox.textContent = '正在測試抓價連線（標的：2330.TW）...';
+
+      const prevWorker = appState.customWorkerUrl;
+      appState.customWorkerUrl = inputVal;
+      const t0 = performance.now();
+
+      try {
+        const res = await fetchYahooSymbol('2330.TW');
+        const ms = Math.round(performance.now() - t0);
+        saveState();
+        resBox.className = 'text-xs text-emerald-300 p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 num-tab';
+        resBox.textContent = `✓ 連線成功！線路：${res.route} ｜ 2330.TW 現價 NT$${res.price}（漲跌 ${formatPct(res.todayPct, true)}）｜ 延遲 ${ms}ms`;
+        showToast(`連線測試成功（延遲 ${ms}ms）`, 'success');
+      } catch (err) {
+        appState.customWorkerUrl = prevWorker;
+        resBox.className = 'text-xs text-rose-300 p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/40 num-tab';
+        resBox.textContent = `✕ 連線失敗：${err.message}（請檢查 Worker URL 是否含 ?url= 並已正確部署）`;
+      }
+    }
+
+    function copyTextViaExecCommand(text, successMsg) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast(successMsg, 'success');
+      } catch (err) {
+        showToast('複製失敗，請手動全選複製', 'error');
+      }
+    }
+
+    function copyWorkerCode() {
+      copyTextViaExecCommand(WORKER_CODE_TEMPLATE, '已複製 Cloudflare Worker 程式碼！');
+    }
+
+    function exportJsonFile() {
+      try {
+        const blob = new Blob([JSON.stringify(appState, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `asset-war-room-live-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('已下載 JSON 備份檔案', 'success');
+      } catch (err) {
+        showToast('下載失敗，請改用複製 JSON 功能', 'error');
+      }
+    }
+
+    function copyJsonToClipboard() {
+      copyTextViaExecCommand(JSON.stringify(appState, null, 2), '已複製完整 JSON 備份內容！');
+    }
+
+    function handleJsonFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        document.getElementById('jsonImportTextarea').value = ev.target.result;
+        importJsonFromText();
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    function importJsonFromText() {
+      const raw = document.getElementById('jsonImportTextarea').value.trim();
+      if (!raw) { showToast('請先上傳檔案或貼上 JSON 內容', 'error'); return; }
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.holdings)) throw new Error('格式無效（缺少 holdings 陣列）');
+        const def = createDefaultState();
+        appState = { ...def, ...parsed };
+        saveState();
+        closeSettingsModal();
+        renderAll();
+        connectBinanceWebSocket();
+        refreshAllQuotes(false);
+        showToast(`已成功還原 ${appState.holdings.length} 檔標的與設定`, 'success');
+      } catch (err) {
+        showToast(`匯入失敗：${err.message}`, 'error');
+      }
+    }
+
+    function confirmResetData() {
+      openConfirmModal(
+        '重置示範資料',
+        '確定要清除目前自訂持倉並還原為預設 11 檔示範標的（台股、美股、加密貨幣與現金）嗎？',
+        () => {
+          appState = createDefaultState();
+          saveState();
+          closeSettingsModal();
+          renderAll();
+          connectBinanceWebSocket();
+          refreshAllQuotes(false);
+          showToast('已重置為示範投資組合並開始抓取最新報價', 'success');
+        }
+      );
+    }
+
+    /* =========================================================================
+       13. CONFIRMATION MODAL & TOAST SYSTEM (NO alert/confirm)
+    ========================================================================= */
+    function openConfirmModal(title, message, onConfirm) {
+      document.getElementById('confirmModalTitle').textContent = title;
+      document.getElementById('confirmModalMessage').textContent = message;
+      confirmActionCallback = onConfirm;
+      const modal = document.getElementById('confirmModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirmModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      confirmActionCallback = null;
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const styles = {
+        success: 'bg-emerald-950/95 border-emerald-500/40 text-emerald-200',
+        error:   'bg-rose-950/95 border-rose-500/40 text-rose-200',
+        info:    'bg-slate-900/95 border-cyan-500/40 text-cyan-100'
+      };
+      const icons = { success: 'check-circle-2', error: 'alert-circle', info: 'info' };
+
+      const el = document.createElement('div');
+      el.className = `toast-enter pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-xl backdrop-blur-md text-xs sm:text-sm font-medium ${styles[type] || styles.info}`;
+      el.innerHTML = `<i data-lucide="${icons[type] || 'info'}" class="w-4 h-4 shrink-0"></i><span>${escapeHtml(msg)}</span>`;
+      container.appendChild(el);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(8px)';
+        el.style.transition = 'all 0.25s ease';
+        setTimeout(() => el.remove(), 260);
+      }, 3200);
+    }
+
+    /* =========================================================================
+       14. MASTER RENDER & EVENT BINDING
+    ========================================================================= */
+    function renderCurrentTab() {
+      const metrics = calculateMetrics();
+      if (activeTab === 'overview') renderOverviewTab(metrics);
+      else renderQuotesTab(metrics);
+      lucide.createIcons();
+    }
+
+    function renderAll() {
+      renderTopConsole();
+      renderCurrentTab();
+    }
+
+    function bindEvents() {
+      // Editable USD/TWD Exchange Rate
+      document.getElementById('exchangeRateInput').addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v) && v > 0 && v < 500) {
+          appState.exchangeRate = v;
+          fxSourceStatus = 'manual';
+          saveState();
+          updateFxUi();
+          renderCurrentTab();
+        }
+      });
+
+      // Live Quotes Search & Sort
+      document.getElementById('quoteSearchInput').addEventListener('input', (e) => {
+        searchQuery = e.target.value;
+        renderQuotesTab(calculateMetrics());
+        lucide.createIcons();
+      });
+      document.getElementById('quoteSortSelect').addEventListener('change', (e) => {
+        sortBy = e.target.value;
+        renderQuotesTab(calculateMetrics());
+        lucide.createIcons();
+      });
+
+      // Confirm Modal execute button
+      document.getElementById('confirmModalActionBtn').addEventListener('click', () => {
+        if (typeof confirmActionCallback === 'function') {
+          const fn = confirmActionCallback;
+          closeConfirmModal();
+          fn();
+        }
+      });
+
+      // Backdrop click to close modals
+      ['holdingModal', 'settingsModal', 'confirmModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', (e) => {
+          if (e.target.id === id) {
+            if (id === 'holdingModal') closeHoldingModal();
+            if (id === 'settingsModal') closeSettingsModal();
+            if (id === 'confirmModal') closeConfirmModal();
+          }
+        });
+      });
+    }
+
+    /* =========================================================================
+       15. BOOTSTRAP
+    ========================================================================= */
+    window.addEventListener('DOMContentLoaded', () => {
+      bindEvents();
+      renderAll();
+      startClockAndPollingLoop();
+      // Start Binance per-second WebSocket stream immediately
+      connectBinanceWebSocket();
+      // Fetch initial live TW/US stock quotes + USD/TWD exchange rate
+      refreshAllQuotes(false);
+    });
+  </script>
+</body>
+</html>
