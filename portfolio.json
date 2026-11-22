@@ -1,0 +1,82 @@
+{
+  "updatedAt": "2026-11-22T04:02:53.469Z",
+  "holdings": [
+    {
+      "id": "h_2330",
+      "symbol": "2330",
+      "name": "台積電",
+      "category": "tw_stock",
+      "currency": "TWD",
+      "qty": 1000,
+      "avgCost": 850,
+      "currentPrice": 2000,
+      "autoQuote": true
+    },
+    {
+      "id": "h_0050",
+      "symbol": "0050",
+      "name": "元大台灣50",
+      "category": "tw_stock",
+      "currency": "TWD",
+      "qty": 3000,
+      "avgCost": 165,
+      "currentPrice": 84.45,
+      "autoQuote": true
+    },
+    {
+      "id": "h_nvda",
+      "symbol": "NVDA",
+      "name": "NVIDIA",
+      "category": "us_stock",
+      "currency": "USD",
+      "qty": 40,
+      "avgCost": 112,
+      "currentPrice": 125.53,
+      "autoQuote": true
+    },
+    {
+      "id": "h_aapl",
+      "symbol": "AAPL",
+      "name": "Apple",
+      "category": "us_stock",
+      "currency": "USD",
+      "qty": 25,
+      "avgCost": 195,
+      "currentPrice": 342.56,
+      "autoQuote": true
+    },
+    {
+      "id": "h_btc",
+      "symbol": "BTC",
+      "name": "Bitcoin",
+      "category": "crypto",
+      "currency": "USD",
+      "qty": 0.12,
+      "avgCost": 68000,
+      "currentPrice": 59600.05,
+      "autoQuote": true
+    },
+    {
+      "id": "h_eth",
+      "symbol": "ETH",
+      "name": "Ethereum",
+      "category": "crypto",
+      "currency": "USD",
+      "qty": 1.5,
+      "avgCost": 2600,
+      "currentPrice": 1669.24,
+      "autoQuote": true
+    },
+    {
+      "id": "h_twd",
+      "symbol": "TWD",
+      "name": "台幣現金",
+      "category": "cash",
+      "currency": "TWD",
+      "qty": 300000,
+      "avgCost": 1,
+      "currentPrice": 1,
+      "autoQuote": false
+    }
+  ]
+}
