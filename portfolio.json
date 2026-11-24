@@ -1,0 +1,82 @@
+{
+  "updatedAt": "2026-11-24T14:44:55.504Z",
+  "holdings": [
+    {
+      "id": "h_1795448295576_h7el",
+      "symbol": "GGLL",
+      "name": "Direxion Daily GOOGL Bull 2X ET",
+      "category": "us_stock",
+      "currency": "USD",
+      "qty": 150,
+      "avgCost": 99.684,
+      "currentPrice": 61.95,
+      "autoQuote": true
+    },
+    {
+      "id": "h_1795448276954_09qx",
+      "symbol": "AVGX",
+      "name": "Defiance Daily Target 2X Long A",
+      "category": "us_stock",
+      "currency": "USD",
+      "qty": 250,
+      "avgCost": 47.566,
+      "currentPrice": 25.33,
+      "autoQuote": true
+    },
+    {
+      "id": "h_1795448254353_y5ql",
+      "symbol": "MUU",
+      "name": "Direxion Daily MU Bull 2X ETF",
+      "category": "us_stock",
+      "currency": "USD",
+      "qty": 200,
+      "avgCost": 31,
+      "currentPrice": 11.269,
+      "autoQuote": true
+    },
+    {
+      "id": "h_1795426221257_327p",
+      "symbol": "0050",
+      "name": "YUANTA SECURITIES INV TRUST CO",
+      "category": "tw_stock",
+      "currency": "TWD",
+      "qty": 2000,
+      "avgCost": 85.9,
+      "currentPrice": 95.7,
+      "autoQuote": true
+    },
+    {
+      "id": "h_1795350074994_2p4x",
+      "symbol": "NVDL",
+      "name": "GraniteShares 2x Long NVDA Dail",
+      "category": "us_stock",
+      "currency": "USD",
+      "qty": 300,
+      "avgCost": 19.453,
+      "currentPrice": 14.7,
+      "autoQuote": true
+    },
+    {
+      "id": "h_1795320963005_w11e",
+      "symbol": "3605",
+      "name": "ACES ELECTRONIC CO. LTD.",
+      "category": "tw_stock",
+      "currency": "TWD",
+      "qty": 1000,
+      "avgCost": 185,
+      "currentPrice": 95.7,
+      "autoQuote": true
+    },
+    {
+      "id": "h_1795320952714_zvvd",
+      "symbol": "8028",
+      "name": "昇陽半導體",
+      "category": "tw_stock",
+      "currency": "TWD",
+      "qty": 1000,
+      "avgCost": 290,
+      "currentPrice": 149.5,
+      "autoQuote": true
+    }
+  ]
+}
